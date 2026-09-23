@@ -2,7 +2,14 @@ import mongoose from "mongoose";
 import user from "../models/auth.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+import {
+  createSession,
+  isKnownDevice,
+  createLoginActivity,
+} from "../services/securityService.js";
+import { getDeviceInfo } from "../services/deviceService.js";
+import { sendEmail } from "../services/emailService.js";
+import { createLoginVerification } from "../services/loginSecurityService.js";
 const getSafeUser = (userData) => {
   if (!userData) return null;
 
@@ -82,10 +89,10 @@ export const Signup = async (req, res) => {
   }
 };
 
-export const Login = async (req, res) => {
-  const { email, password } = req.body;
-
+export const login = async (req, res) => {
   try {
+    const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password are required",
@@ -94,8 +101,6 @@ export const Login = async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Password has select:false in the schema,
-    // so explicitly request it here.
     const existinguser = await user
       .findOne({
         email: normalizedEmail,
@@ -104,41 +109,139 @@ export const Login = async (req, res) => {
 
     if (!existinguser) {
       return res.status(404).json({
-        message: "User does not exist",
+        message: "User not found",
       });
     }
 
-    const ispasswordcorrect = await bcrypt.compare(
+    const isPasswordCorrect = await bcrypt.compare(
       password,
       existinguser.password,
     );
 
-    if (!ispasswordcorrect) {
-      return res.status(400).json({
-        message: "Invalid password",
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const deviceInfo = getDeviceInfo(req);
+
+    const knownDevice = await isKnownDevice({
+      userId: existinguser._id,
+      deviceFingerprint: deviceInfo.deviceFingerprint,
+    });
+
+    const isNewDevice = !knownDevice;
+
+    const { session } = await createSession({
+      userId: existinguser._id,
+      req,
+      isTrusted: false,
+      isActive: !isNewDevice,
+    });
+
+    await createLoginActivity({
+      userId: existinguser._id,
+      deviceInfo,
+      isNewDevice,
+      success: true,
+    });
+    if (isNewDevice) {
+      const verification = await createLoginVerification({
+        userId: existinguser._id,
+        sessionId: session._id,
+        email: existinguser.email,
+        deviceFingerprint: deviceInfo.deviceFingerprint,
+      });
+
+      return res.status(200).json({
+        requiresOtp: true,
+        verificationId: verification._id,
+        message: "New device detected. OTP has been sent to your email.",
       });
     }
 
     const token = jwt.sign(
       {
-        email: existinguser.email,
         id: existinguser._id,
+        email: existinguser.email,
+        sessionId: session._id,
+        tokenId: session.tokenId,
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: "1h",
+        expiresIn: "24h",
       },
     );
 
+    if (isNewDevice && existinguser.email) {
+      try {
+        await sendEmail({
+          to: existinguser.email,
+          subject: "New device login detected",
+          text: `
+A new device has logged into your Stack Overflow Clone account.
+
+Browser: ${deviceInfo.browser}
+Operating System: ${deviceInfo.os}
+Device: ${deviceInfo.deviceType}
+IP Address: ${deviceInfo.ipAddress}
+Time: ${new Date().toLocaleString()}
+
+If this was not you, revoke the session from your security settings.
+          `,
+          html: `
+            <h2>New Device Login</h2>
+
+            <p>A new device has logged into your account.</p>
+
+            <p>
+              <strong>Browser:</strong>
+              ${deviceInfo.browser}
+            </p>
+
+            <p>
+              <strong>Operating System:</strong>
+              ${deviceInfo.os}
+            </p>
+
+            <p>
+              <strong>Device:</strong>
+              ${deviceInfo.deviceType}
+            </p>
+
+            <p>
+              <strong>IP Address:</strong>
+              ${deviceInfo.ipAddress}
+            </p>
+
+            <p>
+              <strong>Time:</strong>
+              ${new Date().toLocaleString()}
+            </p>
+
+            <p>
+              If this was not you, revoke the session from your security settings.
+            </p>
+          `,
+        });
+      } catch (emailError) {
+        console.error("New device email failed:", emailError.message);
+      }
+    }
+
+    const safeUser = getSafeUser(existinguser);
+
     return res.status(200).json({
-      data: getSafeUser(existinguser),
+      result: safeUser,
       token,
+      isNewDevice,
     });
   } catch (error) {
     console.error("Login error:", error);
 
     return res.status(500).json({
-      message: "Something went wrong",
+      message: "Login failed",
     });
   }
 };

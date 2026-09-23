@@ -7,6 +7,8 @@ import userroutes from "./routes/auth.js";
 import questionroute from "./routes/question.js";
 import answerroutes from "./routes/answer.js";
 import passwordRoutes from "./routes/password.js";
+import securityRoutes from "./routes/security.js";
+
 dns.setServers(["1.1.1.1"]);
 const app = express();
 dotenv.config();
@@ -20,6 +22,7 @@ app.use("/user", userroutes);
 app.use("/question", questionroute);
 app.use("/answer", answerroutes);
 app.use("/password", passwordRoutes);
+app.use("/security", securityRoutes);
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;
 

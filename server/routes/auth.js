@@ -3,7 +3,7 @@ import express from "express";
 import {
   getallusers,
   getCurrentUser,
-  Login,
+  login,
   Signup,
   updateprofile,
 } from "../controller/auth.js";
@@ -14,7 +14,7 @@ const router = express.Router();
 
 router.post("/signup", Signup);
 
-router.post("/login", Login);
+router.post("/login", login);
 
 router.get("/getalluser", getallusers);
 
