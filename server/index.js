@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import userroutes from "./routes/auth.js";
 import questionroute from "./routes/question.js";
 import answerroutes from "./routes/answer.js";
-
+import passwordRoutes from "./routes/password.js";
 dns.setServers(["1.1.1.1"]);
 const app = express();
 dotenv.config();
@@ -19,6 +19,7 @@ app.get("/", (req, res) => {
 app.use("/user", userroutes);
 app.use("/question", questionroute);
 app.use("/answer", answerroutes);
+app.use("/password", passwordRoutes);
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;
 
