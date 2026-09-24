@@ -23,12 +23,26 @@ const index = () => {
   };
   const handlesubmit = async (e: any) => {
     e.preventDefault();
+
     if (!form.email || !form.password) {
       toast.error("ALL Fields are required");
       return;
     }
+
     try {
-      await Login(form);
+      const result = await Login(form);
+
+      if (!result?.success) {
+        return;
+      }
+
+      if (result.requiresOtp) {
+        router.push(
+          `/auth/verify-device?verificationId=${result.verificationId}`,
+        );
+        return;
+      }
+
       router.push("/");
     } catch (error) {
       console.log(error);
@@ -142,7 +156,10 @@ const index = () => {
                 {loading ? "loading" : "Log in"}
               </Button>
               <div className="text-center text-sm">
-                <Link href="#" className="text-blue-600 hover:underline">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-blue-600 hover:underline"
+                >
                   Forgot your password?
                 </Link>
               </div>

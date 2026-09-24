@@ -4,7 +4,7 @@ import {
   getallusers,
   getCurrentUser,
   login,
-  Signup,
+  signup,
   updateprofile,
 } from "../controller/auth.js";
 
@@ -12,7 +12,7 @@ import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/signup", Signup);
+router.post("/signup", signup);
 
 router.post("/login", login);
 

@@ -97,22 +97,22 @@ export const requestPasswordReset = async (req, res) => {
       purpose: "forgot_password",
     });
 
+    if (channel === "email") {
+      await sendPasswordOtpEmail(normalizedIdentifier, otp);
+    } else {
+      /*
+    Twilio SMS implementation will be added here.
+  */
+      return res.status(501).json({
+        message: "Phone OTP service is not configured yet. Please use email.",
+      });
+    }
+
     await PasswordReset.create({
       userId: user._id,
       identifier: normalizedIdentifier,
       channel,
     });
-
-    if (channel === "email") {
-      await sendPasswordOtpEmail(normalizedIdentifier, otp);
-    } else {
-      /*
-        Twilio SMS implementation will be added here.
-      */
-      return res.status(501).json({
-        message: "Phone OTP service is not configured yet. Please use email.",
-      });
-    }
 
     return res.status(200).json({
       message: "OTP sent successfully",

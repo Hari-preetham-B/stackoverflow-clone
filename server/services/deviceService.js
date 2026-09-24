@@ -6,47 +6,26 @@ export const getDeviceInfo = (req) => {
 
   const agent = useragent.parse(userAgentString);
 
-  let deviceType = "Desktop";
-
-  if (/tablet|ipad/i.test(userAgentString)) {
-    deviceType = "Tablet";
-  } else if (/mobile|iphone|android/i.test(userAgentString)) {
-    deviceType = "Mobile";
-  }
+  const device = agent.device.toString() || "Unknown";
+  const browser = agent.toAgent() || "Unknown";
+  const os = agent.os.toString() || "Unknown";
 
   const ipAddress =
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    req.socket.remoteAddress ||
+    req.socket?.remoteAddress ||
     "Unknown";
 
-  const browser = `${agent.family} ${agent.major || ""}`.trim();
-
-  const os = `${agent.os.family} ${agent.os.major || ""}`.trim();
-
-  /*
-    The fingerprint deliberately uses stable
-    device/request characteristics available to
-    the backend.
-  */
-  const fingerprintSource = [
-    userAgentString,
-    ipAddress,
-    browser,
-    os,
-    deviceType,
-  ].join("|");
-
-  const deviceFingerprint = crypto
+  // IP is deliberately NOT included in the fingerprint.
+  const fingerprint = crypto
     .createHash("sha256")
-    .update(fingerprintSource)
+    .update(`${userAgentString}|${device}|${browser}|${os}`)
     .digest("hex");
 
   return {
+    device,
     browser,
     os,
-    deviceType,
     ipAddress,
-    location: "Unknown",
-    deviceFingerprint,
+    fingerprint,
   };
 };

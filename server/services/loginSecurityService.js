@@ -1,85 +1,93 @@
 import bcrypt from "bcryptjs";
-import Otp from "../models/otp.js";
 import LoginVerification from "../models/loginVerification.js";
 import { createOtp } from "./otpService.js";
 import { sendEmail } from "./emailService.js";
+import { createTrustedDevice } from "./securityService.js";
 
 export const createLoginVerification = async ({
   userId,
   sessionId,
+  deviceInfo,
   email,
-  deviceFingerprint,
 }) => {
-  const { otp } = await createOtp({
-    userId,
-    identifier: email,
-    channel: "email",
-    purpose: "new_device",
-  });
-
-  const otpDocument = await Otp.findOne({
-    userId,
-    purpose: "new_device",
-    verified: false,
-  }).sort({ createdAt: -1 });
-
-  if (!otpDocument) {
-    throw new Error("Failed to create login OTP");
-  }
-
-  await LoginVerification.deleteMany({
-    userId,
-    verified: false,
-  });
+  const otp = createOtp();
+  const otpHash = await bcrypt.hash(otp, 10);
 
   const verification = await LoginVerification.create({
     userId,
     sessionId,
+    deviceFingerprint: deviceInfo.fingerprint,
+    device: deviceInfo.device,
+    browser: deviceInfo.browser,
+    os: deviceInfo.os,
+    ipAddress: deviceInfo.ipAddress,
     email,
-    deviceFingerprint,
-    otpHash: otpDocument.otpHash,
-    expiresAt: otpDocument.expiresAt,
+    otpHash,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    verified: false,
+    trustDevice: true,
+    attempts: 0,
+    maxAttempts: 5,
   });
 
   await sendEmail({
     to: email,
-    subject: "Verify new device login",
-    text: `
-A login attempt was detected from a new device.
-
-Your verification OTP is:
-
-${otp}
-
-This OTP is valid for 10 minutes.
-    `,
-    html: `
-      <h2>New Device Verification</h2>
-
-      <p>
-        A login attempt was detected from a new device.
-      </p>
-
-      <p>Your verification OTP is:</p>
-
-      <h1>${otp}</h1>
-
-      <p>This OTP is valid for 10 minutes.</p>
-
-      <p>
-        If you did not attempt to log in,
-        secure your account immediately.
-      </p>
-    `,
+    subject: "New device login verification",
+    text: `Your Stack Overflow clone verification OTP is ${otp}. It expires in 10 minutes.`,
   });
 
   return verification;
 };
 
-export const verifyLoginOtp = async ({ verification, otp }) => {
-  if (verification.expiresAt < new Date()) {
-    return false;
+export const verifyLoginOtp = async ({ verificationId, otp }) => {
+  const verification = await LoginVerification.findById(verificationId);
+
+  if (!verification) {
+    throw new Error("Verification request not found");
   }
 
-  return await bcrypt.compare(otp, verification.otpHash);
+  if (verification.verified) {
+    throw new Error("Verification already completed");
+  }
+
+  if (verification.expiresAt < new Date()) {
+    throw new Error("OTP has expired");
+  }
+
+  if (verification.attempts >= verification.maxAttempts) {
+    throw new Error("Maximum OTP attempts exceeded");
+  }
+
+  const isValid = await bcrypt.compare(otp, verification.otpHash);
+
+  if (!isValid) {
+    verification.attempts += 1;
+    await verification.save();
+
+    if (verification.attempts >= verification.maxAttempts) {
+      throw new Error("Maximum OTP attempts exceeded");
+    }
+
+    throw new Error(
+      `Invalid OTP. ${verification.maxAttempts - verification.attempts} attempts remaining`,
+    );
+  }
+
+  verification.verified = true;
+  await verification.save();
+
+  if (verification.trustDevice) {
+    await createTrustedDevice({
+      userId: verification.userId,
+      deviceInfo: {
+        fingerprint: verification.deviceFingerprint,
+        device: verification.device,
+        browser: verification.browser,
+        os: verification.os,
+        ipAddress: verification.ipAddress,
+      },
+    });
+  }
+
+  return verification;
 };

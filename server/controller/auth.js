@@ -8,7 +8,6 @@ import {
   createLoginActivity,
 } from "../services/securityService.js";
 import { getDeviceInfo } from "../services/deviceService.js";
-import { sendEmail } from "../services/emailService.js";
 import { createLoginVerification } from "../services/loginSecurityService.js";
 const getSafeUser = (userData) => {
   if (!userData) return null;
@@ -34,57 +33,90 @@ const calculateProfileCompletion = ({ name, email, about, tags, phone }) => {
   return completedFields === fields.length;
 };
 
-export const Signup = async (req, res) => {
-  const { name, email, password, phone } = req.body;
-
+export const signup = async (req, res) => {
   try {
-    if (!name || !email || !password) {
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
       return res.status(400).json({
-        message: "Name, email and password are required",
+        message: "Username, email and password are required",
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
 
-    const existinguser = await user.findOne({
+    const existingUser = await user.findOne({
       email: normalizedEmail,
     });
 
-    if (existinguser) {
-      return res.status(400).json({
+    if (existingUser) {
+      return res.status(409).json({
         message: "User already exists",
       });
     }
 
-    const hashpassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newuser = await user.create({
-      name: name.trim(),
+    const newUser = await user.create({
+      username,
       email: normalizedEmail,
-      phone: phone || null,
-      password: hashpassword,
+      password: hashedPassword,
+    });
+
+    // Create a security session for the newly registered user
+    const { session } = await createSession({
+      userId: newUser._id,
+      req,
+      isTrusted: true,
+      isActive: true,
+    });
+
+    // Record signup/login activity
+    await createLoginActivity({
+      userId: newUser._id,
+      req,
+      sessionId: session._id,
+      event: "signup",
+      success: true,
     });
 
     const token = jwt.sign(
       {
-        email: newuser.email,
-        id: newuser._id,
+        id: newUser._id.toString(),
+        email: newUser.email,
+        sessionId: session._id.toString(),
+        tokenId: session.tokenId,
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: "1h",
+        expiresIn: "24h",
       },
     );
 
+    const safeUser = {
+      _id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      phone: newUser.phone,
+      role: newUser.role,
+      reputation: newUser.reputation,
+      preferredLanguage: newUser.preferredLanguage,
+      profileCompleted: newUser.profileCompleted,
+      subscriptionPlan: newUser.subscriptionPlan,
+      subscriptionStatus: newUser.subscriptionStatus,
+    };
+
     return res.status(201).json({
-      data: getSafeUser(newuser),
+      message: "User registered successfully",
+      data: safeUser,
       token,
+      isNewDevice: false,
     });
   } catch (error) {
     console.error("Signup error:", error);
 
     return res.status(500).json({
-      message: "Something went wrong",
+      message: "Server error during signup",
     });
   }
 };
@@ -99,26 +131,23 @@ export const login = async (req, res) => {
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
 
-    const existinguser = await user
+    const existingUser = await user
       .findOne({
         email: normalizedEmail,
       })
       .select("+password");
 
-    if (!existinguser) {
-      return res.status(404).json({
-        message: "User not found",
+    if (!existingUser) {
+      return res.status(401).json({
+        message: "Invalid email or password",
       });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(
-      password,
-      existinguser.password,
-    );
+    const passwordMatch = await bcrypt.compare(password, existingUser.password);
 
-    if (!isPasswordCorrect) {
+    if (!passwordMatch) {
       return res.status(401).json({
         message: "Invalid email or password",
       });
@@ -127,45 +156,48 @@ export const login = async (req, res) => {
     const deviceInfo = getDeviceInfo(req);
 
     const knownDevice = await isKnownDevice({
-      userId: existinguser._id,
-      deviceFingerprint: deviceInfo.deviceFingerprint,
+      userId: existingUser._id,
+      deviceFingerprint: deviceInfo.fingerprint,
     });
 
     const isNewDevice = !knownDevice;
 
     const { session } = await createSession({
-      userId: existinguser._id,
+      userId: existingUser._id,
       req,
-      isTrusted: false,
+      isTrusted: knownDevice,
       isActive: !isNewDevice,
     });
 
     await createLoginActivity({
-      userId: existinguser._id,
-      deviceInfo,
-      isNewDevice,
+      userId: existingUser._id,
+      req,
+      sessionId: session._id,
+      event: isNewDevice ? "new_device_login" : "login",
       success: true,
     });
+
+    // New device requires email OTP verification.
     if (isNewDevice) {
       const verification = await createLoginVerification({
-        userId: existinguser._id,
+        userId: existingUser._id,
         sessionId: session._id,
-        email: existinguser.email,
-        deviceFingerprint: deviceInfo.deviceFingerprint,
+        deviceInfo,
+        email: existingUser.email,
       });
 
       return res.status(200).json({
+        message: "New device detected. OTP sent to your email.",
         requiresOtp: true,
         verificationId: verification._id,
-        message: "New device detected. OTP has been sent to your email.",
       });
     }
 
     const token = jwt.sign(
       {
-        id: existinguser._id,
-        email: existinguser.email,
-        sessionId: session._id,
+        id: existingUser._id.toString(),
+        email: existingUser.email,
+        sessionId: session._id.toString(),
         tokenId: session.tokenId,
       },
       process.env.JWT_SECRET,
@@ -174,78 +206,33 @@ export const login = async (req, res) => {
       },
     );
 
-    if (isNewDevice && existinguser.email) {
-      try {
-        await sendEmail({
-          to: existinguser.email,
-          subject: "New device login detected",
-          text: `
-A new device has logged into your Stack Overflow Clone account.
-
-Browser: ${deviceInfo.browser}
-Operating System: ${deviceInfo.os}
-Device: ${deviceInfo.deviceType}
-IP Address: ${deviceInfo.ipAddress}
-Time: ${new Date().toLocaleString()}
-
-If this was not you, revoke the session from your security settings.
-          `,
-          html: `
-            <h2>New Device Login</h2>
-
-            <p>A new device has logged into your account.</p>
-
-            <p>
-              <strong>Browser:</strong>
-              ${deviceInfo.browser}
-            </p>
-
-            <p>
-              <strong>Operating System:</strong>
-              ${deviceInfo.os}
-            </p>
-
-            <p>
-              <strong>Device:</strong>
-              ${deviceInfo.deviceType}
-            </p>
-
-            <p>
-              <strong>IP Address:</strong>
-              ${deviceInfo.ipAddress}
-            </p>
-
-            <p>
-              <strong>Time:</strong>
-              ${new Date().toLocaleString()}
-            </p>
-
-            <p>
-              If this was not you, revoke the session from your security settings.
-            </p>
-          `,
-        });
-      } catch (emailError) {
-        console.error("New device email failed:", emailError.message);
-      }
-    }
-
-    const safeUser = getSafeUser(existinguser);
+    const safeUser = {
+      _id: existingUser._id,
+      username: existingUser.username,
+      email: existingUser.email,
+      phone: existingUser.phone,
+      role: existingUser.role,
+      reputation: existingUser.reputation,
+      preferredLanguage: existingUser.preferredLanguage,
+      profileCompleted: existingUser.profileCompleted,
+      subscriptionPlan: existingUser.subscriptionPlan,
+      subscriptionStatus: existingUser.subscriptionStatus,
+    };
 
     return res.status(200).json({
-      result: safeUser,
+      message: "Login successful",
+      data: safeUser,
       token,
-      isNewDevice,
+      isNewDevice: false,
     });
   } catch (error) {
     console.error("Login error:", error);
 
     return res.status(500).json({
-      message: "Login failed",
+      message: "Server error during login",
     });
   }
 };
-
 export const getCurrentUser = async (req, res) => {
   try {
     const currentuser = await user.findById(req.userid).select("-password");

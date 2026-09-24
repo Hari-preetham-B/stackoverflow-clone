@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import Session from "../models/session.js";
 import LoginActivity from "../models/loginActivity.js";
+import user from "../models/auth.js";
 import jwt from "jsonwebtoken";
-
-import LoginVerification from "../models/loginVerification.js";
-import Otp from "../models/otp.js";
 
 import { verifyLoginOtp } from "../services/loginSecurityService.js";
 
@@ -17,10 +15,8 @@ export const getActiveSessions = async (req, res) => {
         $gt: new Date(),
       },
     })
-      .select(
-        "browser os deviceType ipAddress location isTrusted lastActive createdAt expiresAt",
-      )
-      .sort({ lastActive: -1 });
+      .select("device browser os ipAddress isTrusted createdAt expiresAt")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json(sessions);
   } catch (error) {
@@ -76,10 +72,8 @@ export const getLoginActivity = async (req, res) => {
     const activities = await LoginActivity.find({
       userId: req.userid,
     })
-      .select(
-        "browser os deviceType ipAddress location isNewDevice success timestamp",
-      )
-      .sort({ timestamp: -1 })
+      .select("device browser os ipAddress event success createdAt")
+      .sort({ createdAt: -1 })
       .limit(50);
 
     return res.status(200).json(activities);
@@ -94,7 +88,7 @@ export const getLoginActivity = async (req, res) => {
 
 export const verifyNewDevice = async (req, res) => {
   try {
-    const { verificationId, otp, trustDevice = false } = req.body;
+    const { verificationId, otp } = req.body;
 
     if (!verificationId || !otp) {
       return res.status(400).json({
@@ -102,38 +96,10 @@ export const verifyNewDevice = async (req, res) => {
       });
     }
 
-    const verification = await LoginVerification.findOne({
-      _id: verificationId,
-      verified: false,
-    });
-
-    if (!verification) {
-      return res.status(404).json({
-        message: "Login verification not found or already completed",
-      });
-    }
-
-    if (verification.expiresAt < new Date()) {
-      return res.status(400).json({
-        message: "OTP has expired",
-      });
-    }
-
-    const valid = await verifyLoginOtp({
-      verification,
+    const verification = await verifyLoginOtp({
+      verificationId,
       otp,
     });
-
-    if (!valid) {
-      return res.status(400).json({
-        message: "Invalid OTP",
-      });
-    }
-
-    verification.verified = true;
-    verification.trustDevice = Boolean(trustDevice);
-
-    await verification.save();
 
     const session = await Session.findById(verification.sessionId);
 
@@ -143,18 +109,24 @@ export const verifyNewDevice = async (req, res) => {
       });
     }
 
-    session.isTrusted = Boolean(trustDevice);
-
     session.isActive = true;
-    session.lastActive = new Date();
+    session.isTrusted = verification.trustDevice;
 
     await session.save();
 
+    const existingUser = await user.findById(verification.userId);
+
+    if (!existingUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
     const token = jwt.sign(
       {
-        id: verification.userId,
-        email: verification.email,
-        sessionId: session._id,
+        id: existingUser._id.toString(),
+        email: existingUser.email,
+        sessionId: session._id.toString(),
         tokenId: session.tokenId,
       },
       process.env.JWT_SECRET,
@@ -163,26 +135,57 @@ export const verifyNewDevice = async (req, res) => {
       },
     );
 
-    await Otp.updateMany(
-      {
-        userId: verification.userId,
-        purpose: "new_device",
-        verified: false,
-      },
-      {
-        $set: {
-          verified: true,
-        },
-      },
-    );
+    const safeUser = {
+      _id: existingUser._id,
+      username: existingUser.username,
+      email: existingUser.email,
+      phone: existingUser.phone,
+      role: existingUser.role,
+      reputation: existingUser.reputation,
+      preferredLanguage: existingUser.preferredLanguage,
+      profileCompleted: existingUser.profileCompleted,
+      subscriptionPlan: existingUser.subscriptionPlan,
+      subscriptionStatus: existingUser.subscriptionStatus,
+    };
+
+    await LoginActivity.create({
+      userId: existingUser._id,
+      sessionId: session._id,
+      event: "new_device_verified",
+      success: true,
+      device: session.device,
+      browser: session.browser,
+      os: session.os,
+      ipAddress: session.ipAddress,
+    });
 
     return res.status(200).json({
       message: "New device verified successfully",
+      data: safeUser,
       token,
       trustedDevice: session.isTrusted,
     });
   } catch (error) {
     console.error("New device verification error:", error);
+
+    if (
+      error.message === "Verification request not found" ||
+      error.message === "Verification already completed"
+    ) {
+      return res.status(404).json({
+        message: error.message,
+      });
+    }
+
+    if (
+      error.message === "OTP has expired" ||
+      error.message === "Maximum OTP attempts exceeded" ||
+      error.message.startsWith("Invalid OTP")
+    ) {
+      return res.status(400).json({
+        message: error.message,
+      });
+    }
 
     return res.status(500).json({
       message: "Failed to verify new device",

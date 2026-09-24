@@ -21,40 +21,34 @@ const auth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!decoded?.id) {
+    if (!decoded?.id || !decoded?.sessionId) {
       return res.status(401).json({
-        message: "Invalid authentication token",
+        message: "Invalid session authentication",
       });
     }
 
-    /*
-      If the JWT contains a session ID,
-      verify that session is still active.
-    */
-    if (decoded.sessionId) {
-      const session = await Session.findOne({
-        _id: decoded.sessionId,
-        userId: decoded.id,
-        isActive: true,
-        expiresAt: {
-          $gt: new Date(),
-        },
+    const session = await Session.findOne({
+      _id: decoded.sessionId,
+      userId: decoded.id,
+      tokenId: decoded.tokenId,
+      isActive: true,
+      expiresAt: {
+        $gt: new Date(),
+      },
+    });
+
+    if (!session) {
+      return res.status(401).json({
+        message: "Session expired or revoked",
       });
-
-      if (!session) {
-        return res.status(401).json({
-          message: "Session expired or revoked",
-        });
-      }
-
-      session.lastActive = new Date();
-      await session.save();
-
-      req.sessionId = session._id;
     }
+
+    session.lastActive = new Date();
+    await session.save();
 
     req.userid = decoded.id;
     req.useremail = decoded.email;
+    req.sessionId = session._id;
 
     next();
   } catch (error) {

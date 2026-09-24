@@ -1,22 +1,18 @@
 import mongoose from "mongoose";
 
-const loginVerificationSchema = new mongoose.Schema(
+const trustedDeviceSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       required: true,
-    },
-
-    sessionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Session",
-      required: true,
+      index: true,
     },
 
     deviceFingerprint: {
       type: String,
       required: true,
+      index: true,
     },
 
     device: {
@@ -39,39 +35,19 @@ const loginVerificationSchema = new mongoose.Schema(
       default: "Unknown",
     },
 
-    email: {
-      type: String,
-      required: true,
-    },
-
-    otpHash: {
-      type: String,
-      required: true,
-    },
-
-    expiresAt: {
+    lastUsedAt: {
       type: Date,
-      required: true,
+      default: Date.now,
     },
 
-    verified: {
-      type: Boolean,
-      default: false,
+    trustedAt: {
+      type: Date,
+      default: Date.now,
     },
 
-    trustDevice: {
+    isActive: {
       type: Boolean,
       default: true,
-    },
-
-    attempts: {
-      type: Number,
-      default: 0,
-    },
-
-    maxAttempts: {
-      type: Number,
-      default: 5,
     },
   },
   {
@@ -79,4 +55,9 @@ const loginVerificationSchema = new mongoose.Schema(
   },
 );
 
-export default mongoose.model("LoginVerification", loginVerificationSchema);
+trustedDeviceSchema.index(
+  { userId: 1, deviceFingerprint: 1 },
+  { unique: true },
+);
+
+export default mongoose.model("TrustedDevice", trustedDeviceSchema);
