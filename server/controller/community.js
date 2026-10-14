@@ -4,10 +4,13 @@ import Notification from "../models/notification.js";
 import Report from "../models/report.js";
 import Bookmark from "../models/bookmark.js";
 import User from "../models/auth.js";
+import { getPlan, refreshSubscriptionStatus } from "../services/subscriptionService.js";
 
 const extractHashtags = (text) => [...new Set((text.match(/#[A-Za-z0-9_]+/g) || []).map((x) => x.slice(1).toLowerCase()))];
 
-const populatePost = (query) => query.populate("authorId", "name email reputation preferredLanguage subscriptionPlan");
+// Public profile fields only. Author email addresses are never exposed to feed
+// readers; /user/me remains the way a user sees their own address.
+const populatePost = (query) => query.populate("authorId", "name reputation preferredLanguage subscriptionPlan");
 
 export const createPost = async (req, res) => {
   try {
@@ -103,6 +106,13 @@ export const bookmarkPost = async (req, res) => {
   if (!post) return res.status(404).json({ message: "Post not found" });
   const existing = await Bookmark.findOne({ userId: req.userid, postId: post._id });
   if (existing) { await existing.deleteOne(); await CommunityPost.updateOne({ _id: post._id }, { $pull: { bookmarks: req.userid } }); return res.json({ bookmarked: false }); }
+  const currentUser = await User.findById(req.userid).select("subscriptionPlan");
+  await refreshSubscriptionStatus(currentUser);
+  const plan = getPlan(currentUser?.subscriptionPlan);
+  if (plan.bookmarkLimit !== null) {
+    const used = await Bookmark.countDocuments({ userId: req.userid });
+    if (used >= plan.bookmarkLimit) return res.status(403).json({ message: `Bookmark limit reached for ${plan.name} plan. Upgrade your subscription for unlimited bookmarks.`, limit: plan.bookmarkLimit });
+  }
   await Bookmark.create({ userId: req.userid, postId: post._id });
   await CommunityPost.updateOne({ _id: post._id }, { $addToSet: { bookmarks: req.userid } });
   return res.json({ bookmarked: true });

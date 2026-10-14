@@ -6,6 +6,7 @@ import { createSession, isKnownDevice, createLoginActivity, updateTrustedDeviceU
 import { getDeviceInfo } from "../services/deviceService.js";
 import { createLoginVerification } from "../services/loginSecurityService.js";
 import { awardReputation } from "../services/reputationService.js";
+import { getPlan } from "../services/subscriptionService.js";
 
 export const safeUser = (doc) => {
   if (!doc) return null;
@@ -72,7 +73,16 @@ export const getCurrentUser = async (req, res) => {
   catch (error) { return res.status(500).json({ message: "Something went wrong" }); }
 };
 
-export const getallusers = async (_req, res) => { try { return res.json({ data: await User.find().select("name reputation preferredLanguage subscriptionPlan profileCompleted joinDate about tags role") }); } catch { return res.status(500).json({ message: "Something went wrong" }); } };
+// Public user directory. `role` is deliberately excluded so an unauthenticated
+// caller cannot enumerate which accounts are administrators. Admins still get
+// the full picture through the protected /admin/users endpoint, and a signed-in
+// user still learns their own role from /user/me.
+export const getallusers = async (_req, res) => {
+  try {
+    const users = await User.find().select("name reputation preferredLanguage subscriptionPlan profileCompleted joinDate about tags").lean();
+    return res.json({ data: users.map((u) => ({ ...u, badge: getPlan(u.subscriptionPlan).badge })) });
+  } catch { return res.status(500).json({ message: "Something went wrong" }); }
+};
 
 export const updateprofile = async (req, res) => {
   const { id } = req.params;

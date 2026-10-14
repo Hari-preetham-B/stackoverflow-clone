@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "http://localhost:5000",
+  // Client-side code can only read NEXT_PUBLIC_* variables. BACKEND_URL is
+  // deliberately not consulted here; it stays server-only.
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000",
   headers: { "Content-Type": "application/json" },
 });
 

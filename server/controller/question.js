@@ -23,11 +23,39 @@ export const Askquestion = async (req, res) => {
   } catch (error) { console.error(error); return res.status(500).json({ message: "Failed to post question" }); }
 };
 
+const MAX_ANSWERS_PER_REQUEST = 100;
+
 export const getallquestion = async (req, res) => {
   try {
-    const allquestion = await question.find().sort({ askedon: -1 });
-    res.status(200).json({ data: allquestion });
-  } catch (error) { res.status(500).json({ message: "Failed to load questions" }); }
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const total = await question.countDocuments({});
+    // The embedded answer array is excluded here: list consumers only need the
+    // denormalised `noofanswer` count, and shipping every answer for every
+    // question makes the payload grow quadratically.
+    const data = await question
+      .find({})
+      .sort({ askedon: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select("-answer");
+    return res.status(200).json({ data, pagination: { page, limit, total, hasMore: page * limit < total } });
+  } catch (error) { return res.status(500).json({ message: "Failed to load questions" }); }
+};
+
+export const getquestion = async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "question unavailable" });
+  try {
+    const doc = await question.findById(id);
+    if (!doc) return res.status(404).json({ message: "question unavailable" });
+    const all = doc.answer || [];
+    return res.json({
+      data: { ...doc.toObject(), answer: all.slice(0, MAX_ANSWERS_PER_REQUEST) },
+      answersTotal: all.length,
+      answersTruncated: all.length > MAX_ANSWERS_PER_REQUEST,
+    });
+  } catch (error) { return res.status(500).json({ message: "Failed to load question" }); }
 };
 
 export const searchQuestions = async (req, res) => {
@@ -72,6 +100,7 @@ export const votequestion = async (req, res) => {
     const doc = await question.findById(_id);
     if (!doc) return res.status(404).json({ message: "question unavailable" });
     const uid = req.userid.toString();
+    if (doc.userid && doc.userid.toString() === uid) return res.status(400).json({ message: "You cannot vote on your own question" });
     const upindex = doc.upvote.findIndex((id) => id === uid);
     const downindex = doc.downvote.findIndex((id) => id === uid);
     if (value === "upvote") {
@@ -109,6 +138,7 @@ export const voteAnswer = async (req, res) => {
   const answer = doc.answer.id(answerId);
   if (!answer || answer.deleted) return res.status(404).json({ message: "Answer not found" });
   const uid = req.userid.toString();
+  if (answer.userid && answer.userid.toString() === uid) return res.status(400).json({ message: "You cannot vote on your own answer" });
   if (value === "upvote") {
     if (!answer.upvote.includes(uid)) answer.upvote.push(uid); else answer.upvote = answer.upvote.filter((x) => x !== uid);
     answer.downvote = answer.downvote.filter((x) => x !== uid);
@@ -126,6 +156,13 @@ export const bookmarkQuestion = async (req, res) => {
   if (!doc) return res.status(404).json({ message: "Question not found" });
   const existing = await QuestionBookmark.findOne({ userId: req.userid, questionId: doc._id });
   if (existing) { await existing.deleteOne(); return res.json({ bookmarked: false }); }
+  const currentUser = await User.findById(req.userid).select("subscriptionPlan");
+  await refreshSubscriptionStatus(currentUser);
+  const { bookmarkLimit } = getPlan(currentUser?.subscriptionPlan);
+  if (bookmarkLimit !== null) {
+    const used = await QuestionBookmark.countDocuments({ userId: req.userid });
+    if (used >= bookmarkLimit) return res.status(403).json({ message: `Bookmark limit reached for ${getPlan(currentUser?.subscriptionPlan).name} plan. Upgrade your subscription for unlimited bookmarks.`, limit: bookmarkLimit });
+  }
   await QuestionBookmark.create({ userId: req.userid, questionId: doc._id });
   return res.json({ bookmarked: true });
 };

@@ -1,6 +1,6 @@
 import User from "../models/auth.js";
 import Otp from "../models/otp.js";
-import { createOtp, verifyOtp } from "../services/otpService.js";
+import { createOtp, verifyStoredOtp } from "../services/otpService.js";
 import { sendEmail } from "../services/emailService.js";
 import { sendPhoneVerification, verifyPhoneCode } from "../services/twilioService.js";
 
@@ -37,14 +37,12 @@ export const verifyLanguageOtp = async (req, res) => {
     let valid = false;
     if (language === "fr") {
       const doc = await Otp.findOne({ userId: user._id, purpose: "language_change", verified: false }).sort({ createdAt: -1 });
-      if (!doc || doc.expiresAt < new Date()) return res.status(400).json({ message: "OTP expired or not found" });
-      valid = await verifyOtp(otp, doc.otpHash);
-      if (valid) { doc.verified = true; await doc.save(); }
+      await verifyStoredOtp(doc, otp);
+      valid = true;
     } else if (!process.env.TWILIO_VERIFY_SERVICE_SID && process.env.NODE_ENV !== "production") {
       const doc = await Otp.findOne({ userId: user._id, purpose: "language_change", channel: "email-fallback", verified: false }).sort({ createdAt: -1 });
-      if (!doc || doc.expiresAt < new Date()) return res.status(400).json({ message: "OTP expired or not found" });
-      valid = await verifyOtp(otp, doc.otpHash);
-      if (valid) { doc.verified = true; await doc.save(); }
+      await verifyStoredOtp(doc, otp);
+      valid = true;
     } else {
       if (!user.phone) return res.status(400).json({ message: "Phone number is required" });
       valid = await verifyPhoneCode(user.phone, otp);

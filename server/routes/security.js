@@ -10,6 +10,7 @@ import {
   getTrustedDevices,
   revokeTrustedDevice,
 } from "../controller/security.js";
+import { deviceVerifyLimiter } from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
@@ -20,5 +21,5 @@ router.delete("/sessions/:sessionId", auth, revokeSession);
 router.get("/login-activity", auth, getLoginActivity);
 router.get("/trusted-devices", auth, getTrustedDevices);
 router.delete("/trusted-devices/:deviceId", auth, revokeTrustedDevice);
-router.post("/verify-new-device", verifyNewDevice);
+router.post("/verify-new-device", deviceVerifyLimiter, verifyNewDevice);
 export default router;

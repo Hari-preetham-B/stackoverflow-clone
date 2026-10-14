@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/auth.js";
 import ReputationLog from "../models/reputationLog.js";
 import { awardReputation, getPrivileges, getReputationHistory } from "../services/reputationService.js";
@@ -8,6 +9,9 @@ export const getMyReputation = async (req, res) => {
 };
 
 export const getPublicReputation = async (req, res) => {
+  // Guard before the lookup: a malformed id would otherwise raise an
+  // unhandled Mongoose CastError and surface as a 500.
+  if (!mongoose.Types.ObjectId.isValid(req.params.userId)) return res.status(400).json({ message: "Invalid user ID" });
   const user = await User.findById(req.params.userId).select("name reputation");
   if (!user) return res.status(404).json({ message: "User not found" });
   return res.json({ data: { user, privileges: getPrivileges(user.reputation), history: await ReputationLog.find({ userId: user._id }).sort({ createdAt: -1 }).limit(50) } });

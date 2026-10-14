@@ -1,40 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# CodeQuest — Frontend (`stack/`)
 
-## Getting Started
+This directory holds the **React 19 + Next.js 16 (Pages Router)** frontend of the CodeQuest Stack
+Overflow clone.
 
-First, run the development server:
+> Full project documentation, including the internship feature set, setup, deployment and known
+> limitations, is in the [root README](../README.md).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- React 19, Next.js 16 (Pages Router), TypeScript
+- Tailwind CSS 4 via `@tailwindcss/postcss` (`postcss.config.mjs`, `src/styles/globals.css`)
+- shadcn/ui primitives in `src/components/ui` (button, card, input, label, textarea, badge, avatar,
+  dialog, checkbox) configured by `components.json`
+- `lucide-react` icons, `react-toastify` notifications
+- Axios through a single configured instance in `src/lib/axiosinstance.js`
+
+## Structure
+
+```
+src/
+├── pages/            Route components (auth, ask, questions, community, subscription,
+│                     reputation, security, settings/language, users, admin, …)
+├── components/       Navbar, Sidebar, RightSideBar, QuestionDetail, ui/
+├── layout/           Mainlayout (Navbar + Sidebar + content + RightSideBar)
+└── lib/
+    ├── AuthContext.js        Login state, signup, logout, device verification
+    ├── LanguageContext.js    Active language, `t()` translation helper
+    ├── axiosinstance.js      Base URL + Bearer token + 401 interceptor
+    ├── utils.ts              `cn()`, `escapeHtml()`, `renderQuestionBody()`
+    └── __tests__/            node:test suite
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Getting started
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+```powershell
+npm install
+Copy-Item .env.example .env     # set NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+npm run dev                     # http://localhost:3000
+```
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+`NEXT_PUBLIC_BACKEND_URL` must be prefixed with `NEXT_PUBLIC_` because it is read in the browser.
+It must point at a **reachable** backend URL — `localhost` during development, the public HTTPS
+backend URL once deployed.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+npm test    # 34 tests via Node's built-in node:test runner
+```
 
-## Learn More
+Covers the XSS rendering boundary (`escapeHtml`, `renderQuestionBody`), 15 representative injection
+payloads, Markdown fidelity and escaping invariants.
 
-To learn more about Next.js, take a look at the following resources:
+## Type check and production build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+```powershell
+node node_modules/typescript/bin/tsc --noEmit --incremental false -p tsconfig.json
+npm run build
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+- User-supplied question and answer bodies are HTML-escaped before rendering. The only tags that
+  reach the DOM are those emitted by the renderer (`p`, `h3`, `code`, `pre`, `ol`, `li`).
+- A 401 response clears local auth state and redirects to the login page automatically.
+- CORS on the backend must allow this app's origin — see `CORS_ORIGIN` in the root README.

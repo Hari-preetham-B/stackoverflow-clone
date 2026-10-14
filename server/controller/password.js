@@ -30,8 +30,11 @@ export const requestPasswordReset = async (req, res) => {
       const { otp } = await createOtp({ userId: user._id, identifier: normalized, channel, purpose: "forgot_password" });
       try { await sendPasswordOtpEmail(normalized, otp); } catch (error) { await Otp.deleteMany({ userId: user._id, purpose: "forgot_password", verified: false }); throw error; }
     } else if (!process.env.TWILIO_VERIFY_SERVICE_SID && process.env.NODE_ENV !== "production") {
-      const { otp } = await createOtp({ userId: user._id, identifier: normalized, channel: "email-fallback", purpose: "forgot_password" });
-      await sendPasswordOtpEmail(user.email, otp);
+      const { otp, otpDocument } = await createOtp({ userId: user._id, identifier: normalized, channel: "email-fallback", purpose: "forgot_password" });
+      // Roll back by exact document id so a failed send cannot leave an
+      // unusable OTP behind, while never touching any other stored OTP.
+      try { await sendPasswordOtpEmail(user.email, otp); }
+      catch (error) { await Otp.findByIdAndDelete(otpDocument._id); throw error; }
     } else {
       await sendPhoneVerification(normalized);
     }

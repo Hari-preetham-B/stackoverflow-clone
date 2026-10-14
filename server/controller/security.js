@@ -31,6 +31,9 @@ export const verifyNewDevice = async (req, res) => {
   try {
     const { verificationId, otp, trustDevice = true } = req.body;
     if (!verificationId || !otp) return res.status(400).json({ message: "Verification ID and OTP are required" });
+    // Guard before the lookup: a malformed id would otherwise raise an
+    // unhandled Mongoose CastError and surface as a 500.
+    if (!mongoose.Types.ObjectId.isValid(verificationId)) return res.status(400).json({ message: "Invalid verification ID" });
     const verification = await verifyLoginOtp({ verificationId, otp, trustDevice });
     const session = await Session.findById(verification.sessionId);
     if (!session) return res.status(404).json({ message: "Session not found" });

@@ -12,7 +12,9 @@ export const awardReputation = async ({ userId, amount, reason, eventKey, actorI
   return { changed: true, log, user: updated };
 };
 
-export const getReputationHistory = (userId) => ReputationLog.find({ userId }).sort({ createdAt: -1 }).limit(100).populate("actorId", "name email");
+// Only the public display name of the other party is exposed; the email address
+// of a transfer counterparty must not leak through a reputation history.
+export const getReputationHistory = (userId) => ReputationLog.find({ userId }).sort({ createdAt: -1 }).limit(100).populate("actorId", "name");
 
 export const getPrivileges = (reputation) => ({
   canVote: reputation >= 15,

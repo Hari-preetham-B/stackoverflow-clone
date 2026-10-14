@@ -1,14 +1,14 @@
 import User from "../models/auth.js";
 import Payment from "../models/payment.js";
-import { createPaymentOrder, getPlan, PLANS, verifyPayment, refreshSubscriptionStatus } from "../services/subscriptionService.js";
+import { createPaymentOrder, getEntitlements, getPlan, PLANS, verifyPayment, refreshSubscriptionStatus } from "../services/subscriptionService.js";
 
-export const getPlans = async (_req, res) => res.json({ data: PLANS });
+export const getPlans = async (_req, res) => res.json({ data: PLANS, entitlements: Object.fromEntries(Object.keys(PLANS).map((key) => [key, getEntitlements(key)])) });
 
 export const getMySubscription = async (req, res) => {
   const user = await User.findById(req.userid).select("subscriptionPlan subscriptionStatus subscriptionRenewalDate email name phone billingDetails");
   await refreshSubscriptionStatus(user);
   const payments = await Payment.find({ userId: req.userid }).sort({ createdAt: -1 });
-  return res.json({ data: { user, plan: getPlan(user.subscriptionPlan), payments } });
+  return res.json({ data: { user, plan: getPlan(user.subscriptionPlan), entitlements: getEntitlements(user.subscriptionPlan), payments } });
 };
 
 export const createOrder = async (req, res) => {

@@ -3,6 +3,7 @@ import {
   Askquestion,
   deletequestion,
   getallquestion,
+  getquestion,
   votequestion,
   searchQuestions,
   acceptAnswer,
@@ -23,5 +24,8 @@ router.patch("/:id/answers/:answerId/accept", auth, acceptAnswer);
 router.patch("/:id/answers/:answerId/vote", auth, voteAnswer);
 router.post("/bookmark/:id", auth, bookmarkQuestion);
 router.post("/:id/flag", auth, flagQuestion);
+// Must stay LAST: "/:id" is a catch-all for the GET method and would otherwise
+// shadow "/getallquestion" and "/search", which are registered above it.
+router.get("/:id", getquestion);
 
 export default router;

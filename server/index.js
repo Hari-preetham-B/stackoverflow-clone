@@ -3,7 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import mongoose from "mongoose";
-import User from "./models/auth.js";
+import { syncAdminRole } from "./services/adminRoleService.js";
 import userroutes from "./routes/auth.js";
 import questionroute from "./routes/question.js";
 import answerroutes from "./routes/answer.js";
@@ -20,7 +20,42 @@ const app = express();
 dotenv.config();
 app.use(express.json({ limit: "30mb", extended: true }));
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
-app.use(cors());
+
+// CORS: an explicit allowlist. CORS_ORIGIN accepts a comma-separated list of
+// frontend origins; when it is unset we fall back to the local development
+// origins so `npm run dev` keeps working out of the box. Unrestricted access is
+// only granted when CORS_ORIGIN is literally "*", which must be an explicit
+// operator decision. Requests without an Origin header (curl, server-to-server)
+// are always allowed; a disallowed browser origin simply gets no CORS headers,
+// so the browser blocks it and the API still answers non-browser clients.
+const DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const configuredOrigins = String(process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowAnyOrigin = configuredOrigins.includes("*");
+const allowedOrigins = allowAnyOrigin ? [] : configuredOrigins.length ? configuredOrigins : DEV_ORIGINS;
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowAnyOrigin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    credentials: true,
+  }),
+);
+
+// Baseline security headers, applied without pulling in a dependency. A full
+// Content-Security-Policy is deliberately not set here because it has to be
+// tuned together with the Next.js and Razorpay checkout scripts.
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
 app.get("/", (req, res) => {
   res.send("Stackoverflow clone is running perfect");
 });
@@ -37,26 +72,6 @@ app.use("/language", languageRoutes);
 app.use("/admin", adminRoutes);
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;
-
-// ADMIN_EMAIL is the documented source of truth for the administrator (see
-// .env.example). Accounts created before the `role` field existed carry no role,
-// which makes every admin route reject them with 403. This reconciles the
-// configured account once at startup. It is an idempotent $set scoped to that one
-// email: it never inserts a user, never touches any other account and never
-// changes credentials.
-const syncAdminRole = async () => {
-  const adminEmail = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-  if (!adminEmail) return;
-  try {
-    const { modifiedCount } = await User.updateMany(
-      { email: adminEmail, role: { $ne: "admin" } },
-      { $set: { role: "admin" } },
-    );
-    if (modifiedCount) console.log(`Admin role synced for the configured ADMIN_EMAIL (${modifiedCount} document)`);
-  } catch (error) {
-    console.error("Admin role sync skipped:", error.message);
-  }
-};
 
 mongoose
   .connect(databaseurl)

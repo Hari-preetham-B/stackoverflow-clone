@@ -76,7 +76,7 @@ export default function Home() {
   useEffect(() => {
     const fetchquestion = async () => {
       try {
-        const res = await axiosInstance.get("/question/getallquestion");
+        const res = await axiosInstance.get("/question/getallquestion?page=1&limit=20");
         setquestion(res.data.data);
       } catch (error) {
         console.log(error);
@@ -153,7 +153,7 @@ export default function Home() {
                     <div className="text-center">
                       <div
                         className={`font-medium ${
-                          question.answer.length > 0
+                          question.noofanswer > 0
                             ? "text-green-600 bg-green-100 px-2 py-1 rounded"
                             : ""
                         }`}

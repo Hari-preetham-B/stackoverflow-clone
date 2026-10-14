@@ -27,7 +27,7 @@ const index = () => {
     const { id, value } = e.target;
     if (id === "tags") {
       const tagarray = value
-        .split(/[s,]+/)
+        .split(/[\s,]+/)
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0);
       setFormData((prev) => ({ ...prev, tags: tagarray }));
@@ -56,9 +56,14 @@ const index = () => {
         toast.success("Question posted successfully");
         router.push("/");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
-      toast.error("Something went wrong");
+      const message = error?.response?.data?.message;
+      if (error?.response?.status === 429) {
+        toast.error(message || "You have reached your daily question limit for this plan.");
+      } else {
+        toast.error(message || "Something went wrong");
+      }
     }
   };
   const handleAddTag = (e: any) => {
@@ -133,8 +138,12 @@ const index = () => {
                 </p>
                 <div className="flex gap-2">
                   <Input
+                    id="tags"
                     value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setNewTag(e.target.value);
+                    }}
                     placeholder="e.g. javascript react nextjs"
                     className="w-full"
                   />
