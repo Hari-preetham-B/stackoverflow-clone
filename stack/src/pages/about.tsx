@@ -1,0 +1,2 @@
+import Mainlayout from "@/layout/Mainlayout";
+export default function AboutPage(){return <Mainlayout><div className="max-w-3xl mx-auto space-y-4"><h1 className="text-3xl font-semibold">About</h1><p>This internship project is a Stack Overflow-style Q&amp;A platform with authentication, questions, answers, community features, reputation, security and subscriptions.</p><p>Use the sidebar to explore the implemented modules.</p></div></Mainlayout>}

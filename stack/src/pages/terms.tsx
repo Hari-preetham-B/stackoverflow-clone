@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function TermsPage(){return <div className="min-h-screen p-8 max-w-3xl mx-auto"><h1 className="text-3xl font-semibold mb-4">Terms of Service</h1><p className="mb-4">This training project is provided for educational and demonstration purposes. Do not use it to process real payments or sensitive production data without additional security and compliance work.</p><Link href="/signup" className="text-blue-600 hover:underline">Back to sign up</Link></div>}

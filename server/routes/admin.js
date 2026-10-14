@@ -1,0 +1,13 @@
+import express from "express";
+import auth from "../middleware/auth.js";
+import admin from "../middleware/admin.js";
+import { getReports, moderateReport, getLoginActivityAdmin, getUsersAdmin, getContentReports, moderateContentReport } from "../controller/admin.js";
+const router = express.Router();
+router.use(auth, admin);
+router.get("/reports", getReports);
+router.patch("/reports/:id", moderateReport);
+router.get("/login-activity", getLoginActivityAdmin);
+router.get("/users", getUsersAdmin);
+router.get("/content-reports", getContentReports);
+router.patch("/content-reports/:id", moderateContentReport);
+export default router;

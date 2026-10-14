@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function PrivacyPage(){return <div className="min-h-screen p-8 max-w-3xl mx-auto"><h1 className="text-3xl font-semibold mb-4">Privacy Policy</h1><p className="mb-4">This training project stores account, session, security, community and subscription data in its configured database. Do not use real sensitive information in a local demonstration environment.</p><Link href="/signup" className="text-blue-600 hover:underline">Back to sign up</Link></div>}

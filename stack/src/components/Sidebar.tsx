@@ -1,0 +1,25 @@
+import { cn } from "@/lib/utils";
+import { Bookmark, Home, MessageSquareIcon, Tag, Users, Shield, Crown, Trophy, Globe2 } from "lucide-react";
+import Link from "next/link";
+import React from "react";
+import { useLanguage } from "@/lib/LanguageContext";
+import { useAuth } from "@/lib/AuthContext";
+
+const Sidebar = ({ isopen }: any) => {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const links = [
+    ["/", t("home"), Home],
+    ["/questions", t("questions"), MessageSquareIcon],
+    ["/tags", "Tags", Tag],
+    ["/users", "Users", Users],
+    ["/community", t("community"), Bookmark],
+    ["/subscription", t("premium"), Crown],
+    ["/reputation", t("reputation"), Trophy],
+    ["/security", t("security"), Shield],
+    ["/settings/language", t("language"), Globe2],
+  ];
+  if (user?.role === "admin") links.push(["/admin", "Admin", Shield]);
+  return <aside className={cn("top-13.25 w-48 lg:w-64 min-h-screen bg-white shadow-sm border-r transition-transform duration-200 ease-in-out md:translate-x-0", isopen ? "translate-x-0" : "-translate-x-full")}><nav className="p-2 lg:p-4"><ul className="space-y-1">{links.map(([href,label,Icon]: any)=><li key={href}><Link href={href} className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"><Icon className="w-4 h-4 mr-2 lg:mr-3" />{label}</Link></li>)}</ul></nav></aside>;
+};
+export default Sidebar;
