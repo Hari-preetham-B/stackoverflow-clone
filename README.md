@@ -24,8 +24,7 @@ five internship-specific feature modules.
 | **Device intelligence** | User-agent parsing for browser / OS / device detection |
 | **Testing** | Node's built-in test runner (`node:test`) + `node:assert/strict` — no external test framework |
 
-**Codebase scale:** 57 registered API routes · 17 Mongoose models · 10 controllers · 11 services ·
-4 middleware modules · 23 frontend pages · 60 automated tests.
+**Codebase scale:** 63 registered API routes - 18 Mongoose models - 11 controllers - 12 services - 4 middleware modules - 23 frontend pages - 172 automated tests.
 
 ---
 
@@ -87,6 +86,30 @@ Users subscribe to one of four monthly plans. Entitlements are enforced **server
 - **Gold-exclusive community feed** — gated on `subscriptionPlan === "gold"` server-side.
 - **Subscription expiry** — lapsed plans fall back to Free automatically on read.
 
+### Premium benefits with a consuming surface
+
+Three entitlements used to exist only as metadata returned by the API. They now have honest,
+visible consumers. None of them claims a ranking effect that the backend does not actually apply.
+
+- **Featured profile** (Gold) — `GET /user/getalluser` returns `featured: true` for Gold accounts
+  and the public user directory renders a **Featured Profile** badge. It is a badge only: no
+  position in search or in the feed is derived from it.
+- **Enhanced profile visibility** (Silver and Gold) — the same endpoint returns
+  `enhancedVisibility: true` and the directory renders an **Enhanced Visibility** badge. The badge
+  deliberately does not claim search ranking, because no profile-ranking algorithm exists.
+- **Priority support** (Silver and Gold) — a minimal, real support surface:
+  - `POST /support/request` — any signed-in member may raise a request (`subject`, `message`).
+  - `GET /support/requests/me` — the caller's own request history.
+  - `GET /support/entitlement/me` — the caller's server-derived support entitlement.
+  - **Priority is derived server-side from the caller's plan and can never be spoofed**: the client
+    may send any `priority` value and it is ignored; the stored flag is computed from the plan at
+    request time and snapshotted alongside the plan name, so a later plan change cannot rewrite the
+    history of what was promised. Free and Bronze requests are stored with `priority: false`.
+  - The subscription dashboard renders a **Priority Support** badge and a support form for entitled
+    plans, and honest "standard queueing" wording for everyone else.
+  - **Scope:** this is a request inbox, not a ticketing system. There is no staff-side triage
+    dashboard, no assignment or SLA tracking, and no admin UI for the requests.
+
 ---
 
 ## 5. Forgot Password
@@ -120,6 +143,28 @@ achievements.
 - **Ownership** — only the author can edit or delete a post (enforced by `authorId` match).
 - **Moderation** — reporting with one report per user per post (unique index), plus an admin
   moderation queue that can review, dismiss or remove.
+- **Suspension (repeat offenders)** — an admin can suspend or reinstate an account:
+  - `POST /admin/users/:id/suspend` requires a reason and accepts an optional `durationDays`
+    (1–365). Omit it for an indefinite suspension.
+  - `POST /admin/users/:id/unsuspend` clears the flag, the reason and the expiry.
+  - Both routes sit behind the existing `auth` + `admin` guard, so a normal user receives 403 and
+    an anonymous caller 401. An administrator account cannot be suspended.
+  - While a suspension is in force, the nine community write endpoints (create post, edit post,
+    like, comment, reply, share, bookmark, follow, report) answer 403. Reading the feed, reading
+    notifications and deleting your own post remain available so a suspended member can always
+    clean up content they created.
+  - A temporary suspension lapses on its own at the expiry instant — expiry is evaluated per
+    request, so no background job is required.
+  - Suspending also revokes that account's active sessions, because a JWT stays cryptographically
+    valid until it expires and must not outlive the suspension.
+  - **Scope:** suspension is enforced on community write operations only. Posting questions and
+    answers is not currently affected, and there is no staff-side triage dashboard for it.
+- **Hashtag filtering** — hashtags are extracted from post text, stored lowercase and indexed.
+  `GET /community/posts/hashtag/:tag` returns the posts carrying a tag. The requested tag is
+  trimmed, a leading `#` is stripped and the value is lowercased, so `Python`, `PYTHON`, `python`
+  and `#Python` all match. Matching is an exact array comparison rather than a regex, so a partial
+  or injected pattern cannot widen the result set. Deleted and moderated-away posts are excluded,
+  and the endpoint returns the same `page`/`limit`/`total`/`hasMore` envelope as the main feed.
 - **Notifications** — like, comment, reply, share, follow and payment events; self-actions are
   suppressed.
 - **Pagination** — server-side `page`/`limit` with `total` and `hasMore`, powering "Load more".
@@ -231,12 +276,12 @@ dependency was added**; tests run on the Node version the app already requires.
 stackoverflow-clone/
 ├── server/                       Node.js + Express API
 │   ├── index.js                  Entry point; CORS, security headers, routes, admin sync
-│   ├── controller/   (10)        Request handling per domain
-│   ├── services/      (11)       Business logic (security, OTP, subscription, reputation…)
-│   ├── models/        (17)       Mongoose schemas
+│   ├── controller/   (11)        Request handling per domain
+│   ├── services/      (12)       Business logic (security, OTP, subscription, reputation…)
+│   ├── models/        (18)       Mongoose schemas
 │   ├── middleware/     (4)        auth, admin, optionalAuth, rateLimit
-│   ├── routes/        (10)       57 registered endpoints
-│   └── tests/         (2)        node:test suites
+│   ├── routes/        (11)       63 registered endpoints
+│   └── tests/         (5)        node:test suites
 └── stack/                        Next.js frontend
     ├── src/pages/     (23)       App Router-style page components under Pages Router
     ├── src/components/          Navbar, Sidebar, QuestionDetail, RightSideBar, ui/
@@ -322,11 +367,11 @@ Open <http://localhost:3000>. Verify the API with `GET http://localhost:5000/hea
 ## 16. Testing
 
 ```powershell
-cd server; npm test    # 26 tests
+cd server; npm test    # 138 tests
 cd stack;  npm test    # 34 tests
 
 # from the project root — runs both suites
-node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 60 tests
+node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 172 tests
 
 # type check
 node stack/node_modules/typescript/bin/tsc --noEmit --incremental false -p stack/tsconfig.json
@@ -433,7 +478,7 @@ These are **verification and deployment limitations**, not implementation failur
   profiles, MongoDB and JWT layers were kept intact; the internship modules are additive.
 - **Every server-authoritative rule** (plan quotas, entitlements, moderation penalties, role
   checks, rate limits) is enforced in the backend, never trusted from the client.
-- **Test coverage:** 60 automated tests across both packages, including the two highest-risk
+- **Test coverage:** 172 automated tests across both packages, including the two highest-risk
   security paths.
 - **Build status:** TypeScript reports 0 diagnostics; the production Next.js build succeeds and
   generates all pages.

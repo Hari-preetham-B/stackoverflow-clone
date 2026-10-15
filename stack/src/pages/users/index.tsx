@@ -95,6 +95,24 @@ const index = () => {
                   </div>
                 </div>
 
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {user.badge && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                      {user.badge} badge
+                    </span>
+                  )}
+                  {user.featured && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                      Featured Profile
+                    </span>
+                  )}
+                  {user.enhancedVisibility && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-sky-100 text-sky-800">
+                      Enhanced Visibility
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center text-sm text-gray-600 mb-3">
                   <Calendar className="w-4 h-4 mr-1" />
                   <span>Joined {new Date(user.joinDate).getFullYear()}</span>

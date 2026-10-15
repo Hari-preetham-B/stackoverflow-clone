@@ -16,6 +16,12 @@ const userschema = new mongoose.Schema(
     subscriptionPlan: { type: String, enum: ["free", "bronze", "silver", "gold"], default: "free" },
     subscriptionStatus: { type: String, enum: ["active", "inactive", "pending", "cancelled", "expired", "halted"], default: "active" },
     subscriptionRenewalDate: { type: Date, default: null },
+    // Moderation suspension. A suspension with no `suspendedUntil` is
+    // indefinite; one with a date lapses on its own, so no scheduled job is
+    // needed to lift it.
+    isSuspended: { type: Boolean, default: false },
+    suspendedUntil: { type: Date, default: null },
+    suspensionReason: { type: String, default: null },
     billingDetails: {
       name: { type: String, default: "" },
       email: { type: String, default: "" },

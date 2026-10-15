@@ -6,7 +6,7 @@ import { createSession, isKnownDevice, createLoginActivity, updateTrustedDeviceU
 import { getDeviceInfo } from "../services/deviceService.js";
 import { createLoginVerification } from "../services/loginSecurityService.js";
 import { awardReputation } from "../services/reputationService.js";
-import { getPlan } from "../services/subscriptionService.js";
+import { getPlan, getEntitlements } from "../services/subscriptionService.js";
 
 export const safeUser = (doc) => {
   if (!doc) return null;
@@ -80,7 +80,14 @@ export const getCurrentUser = async (req, res) => {
 export const getallusers = async (_req, res) => {
   try {
     const users = await User.find().select("name reputation preferredLanguage subscriptionPlan profileCompleted joinDate about tags").lean();
-    return res.json({ data: users.map((u) => ({ ...u, badge: getPlan(u.subscriptionPlan).badge })) });
+    // `featured` and `enhancedVisibility` are the public, truthful projection of
+    // two plan benefits that previously existed only as raw entitlement
+    // metadata. They are badges, not a ranking claim: nothing here promises a
+    // position in search results.
+    return res.json({ data: users.map((u) => {
+      const entitlements = getEntitlements(u.subscriptionPlan);
+      return { ...u, badge: entitlements.badge, featured: entitlements.featuredProfile, enhancedVisibility: entitlements.enhancedProfileVisibility };
+    }) });
   } catch { return res.status(500).json({ message: "Something went wrong" }); }
 };
 

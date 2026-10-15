@@ -117,6 +117,7 @@ export const votequestion = async (req, res) => {
 
 export const acceptAnswer = async (req, res) => {
   const { id, answerId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(answerId)) return res.status(400).json({ message: "Invalid answer ID" });
   const doc = await question.findById(id);
   if (!doc) return res.status(404).json({ message: "Question not found" });
   if (doc.userid.toString() !== req.userid.toString()) return res.status(403).json({ message: "Only the question owner can accept an answer" });
@@ -132,6 +133,7 @@ export const acceptAnswer = async (req, res) => {
 
 export const voteAnswer = async (req, res) => {
   const { id, answerId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(answerId)) return res.status(400).json({ message: "Invalid answer ID" });
   const { value } = req.body;
   const doc = await question.findById(id);
   if (!doc) return res.status(404).json({ message: "Question not found" });
@@ -152,6 +154,7 @@ export const voteAnswer = async (req, res) => {
 };
 
 export const bookmarkQuestion = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: "Invalid question ID" });
   const doc = await question.findById(req.params.id);
   if (!doc) return res.status(404).json({ message: "Question not found" });
   const existing = await QuestionBookmark.findOne({ userId: req.userid, questionId: doc._id });
@@ -168,6 +171,7 @@ export const bookmarkQuestion = async (req, res) => {
 };
 
 export const flagQuestion = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: "Invalid question ID" });
   const doc = await question.findById(req.params.id);
   if (!doc) return res.status(404).json({ message: "Question not found" });
   if (!String(req.body.reason || "").trim()) return res.status(400).json({ message: "Flag reason is required" });

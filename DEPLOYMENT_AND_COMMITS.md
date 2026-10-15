@@ -141,7 +141,7 @@ CORS_ORIGIN           (backend)    ◄──────  frontend public origin
 
 ## 7. Git commit procedure
 
-All work is currently uncommitted on top of the baseline commit `d9d8145`. Review before committing.
+The repository is at commit `eab7798` (`fix: allow multiple pending payment orders`). The gap-closure work documented below - the malformed-ObjectId guards, repeat-offender suspension, personalised feed ranking, hashtag filtering, premium-feature consumption and the `tags`/`users` translations - is **not yet committed**; it sits in the working tree on top of `eab7798`. Review the diff before committing.
 
 ```powershell
 git status

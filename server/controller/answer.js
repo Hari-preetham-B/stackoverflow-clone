@@ -21,6 +21,7 @@ export const Askanswer = async (req, res) => {
 export const deleteanswer = async (req, res) => {
   const { id: questionId } = req.params;
   const { answerid } = req.body;
+  if (!mongoose.Types.ObjectId.isValid(questionId) || !mongoose.Types.ObjectId.isValid(answerid)) return res.status(400).json({ message: "Invalid answer ID" });
   const doc = await question.findById(questionId);
   if (!doc) return res.status(404).json({ message: "question unavailable" });
   const answer = doc.answer.id(answerid);
@@ -34,6 +35,7 @@ export const deleteanswer = async (req, res) => {
 
 export const adminDeleteAnswer = async (req, res) => {
   const { id: questionId, answerId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(questionId) || !mongoose.Types.ObjectId.isValid(answerId)) return res.status(400).json({ message: "Invalid answer ID" });
   const doc = await question.findById(questionId);
   if (!doc) return res.status(404).json({ message: "question unavailable" });
   const answer = doc.answer.id(answerId);

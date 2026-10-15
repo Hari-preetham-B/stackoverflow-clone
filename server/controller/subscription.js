@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/auth.js";
 import Payment from "../models/payment.js";
 import { createPaymentOrder, getEntitlements, getPlan, PLANS, verifyPayment, refreshSubscriptionStatus } from "../services/subscriptionService.js";
@@ -38,6 +39,7 @@ export const verifyOrder = async (req, res) => {
 };
 
 export const getInvoice = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.paymentId)) return res.status(400).json({ message: "Invalid payment ID" });
   const payment = await Payment.findOne({ _id: req.params.paymentId, userId: req.userid }).populate("userId", "name email");
   if (!payment || payment.status !== "paid") return res.status(404).json({ message: "Invoice not found" });
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${payment.invoiceNumber}</title><style>body{font-family:Arial;padding:40px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:10px;text-align:left}</style></head><body><h1>Stack Overflow Clone</h1><h2>Invoice ${payment.invoiceNumber}</h2><p>Customer: ${payment.userId.name} (${payment.userId.email})</p><table><tr><th>Plan</th><th>Amount</th><th>Status</th><th>Paid</th></tr><tr><td>${payment.plan}</td><td>₹${payment.amount}</td><td>${payment.status}</td><td>${payment.paidAt?.toISOString() || ""}</td></tr></table></body></html>`;

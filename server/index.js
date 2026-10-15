@@ -14,6 +14,7 @@ import communityRoutes from "./routes/community.js";
 import reputationRoutes from "./routes/reputation.js";
 import languageRoutes from "./routes/language.js";
 import adminRoutes from "./routes/admin.js";
+import supportRoutes from "./routes/support.js";
 
 dns.setServers(["1.1.1.1"]);
 const app = express();
@@ -70,6 +71,7 @@ app.use("/community", communityRoutes);
 app.use("/reputation", reputationRoutes);
 app.use("/language", languageRoutes);
 app.use("/admin", adminRoutes);
+app.use("/support", supportRoutes);
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;
 

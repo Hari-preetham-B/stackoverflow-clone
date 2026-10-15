@@ -4,8 +4,8 @@ This document describes **what is currently implemented**. Verification results 
 [FINAL_VERIFICATION_REPORT.md](FINAL_VERIFICATION_REPORT.md); the local run order is in
 [RUN_AND_TEST.md](RUN_AND_TEST.md).
 
-Project scale: **57 registered API routes · 17 Mongoose models · 10 controllers · 11 services ·
-4 middleware modules · 23 frontend pages · 60 automated tests.**
+Project scale: **63 registered API routes - 18 Mongoose models - 11 controllers - 12 services -
+4 middleware modules - 23 frontend pages - 172 automated tests.**
 
 ## Feature groups
 
@@ -127,7 +127,7 @@ Project scale: **57 registered API routes · 17 Mongoose models · 10 controller
 - Backend relative import/export audit passed.
 - Frontend TypeScript compilation passes with **0 diagnostics**.
 - Frontend local import existence audit passed.
-- **57 registered backend routes**; **36 frontend Axios call sites**; every call maps to a registered
+- **63 registered backend routes**; **36 frontend Axios call sites**; every call maps to a registered
   route with a matching HTTP method and request shape.
 - Static internal page/link audit passed across the Next.js pages.
 - Production Next.js build succeeds and generates all pages.

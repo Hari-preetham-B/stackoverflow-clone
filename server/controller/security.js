@@ -53,6 +53,7 @@ export const getTrustedDevices = async (req, res) => {
 };
 
 export const revokeTrustedDevice = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.deviceId)) return res.status(400).json({ message: "Invalid device ID" });
   const device = await TrustedDevice.findOneAndUpdate({ _id: req.params.deviceId, userId: req.userid }, { isActive: false }, { new: true });
   if (!device) return res.status(404).json({ message: "Trusted device not found" });
   return res.json({ message: "Trusted device revoked" });

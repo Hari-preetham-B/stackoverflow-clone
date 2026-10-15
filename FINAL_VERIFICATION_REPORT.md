@@ -8,11 +8,11 @@ is in [RUN_AND_TEST.md](RUN_AND_TEST.md).
 
 | Check | Command | Result |
 |---|---|---|
-| Backend tests | `cd server && npm test` | **26 / 26 passed**, 0 failed |
+| Backend tests | `cd server && npm test` | **138 / 138 passed**, 0 failed |
 | Frontend tests | `cd stack && npm test` | **34 / 34 passed**, 0 failed |
-| Combined tests | `node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts` | **60 / 60 passed**, 0 failed |
+| Combined tests | `node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts` | **172 / 172 passed**, 0 failed |
 | TypeScript | `tsc --noEmit --incremental false` | **0 diagnostics** |
-| Backend syntax | `node --check` on all backend `.js` | **55 / 55 passed**, 0 failures |
+| Backend syntax | `node --check` on all backend `.js` | **63 / 63 passed**, 0 failures |
 | Production build | `cd stack && npm run build` | **Succeeded**; all pages generated |
 
 The test suites cover the two highest-risk security paths:
@@ -27,7 +27,7 @@ The test suites cover the two highest-risk security paths:
 
 ## Static and structural verification
 
-- **57 registered backend routes**; **36 frontend Axios call sites**; every call maps to a
+- **63 registered backend routes**; **36 frontend Axios call sites**; every call maps to a
   registered route with a matching HTTP method, parameter name and response shape.
 - Route ordering verified: `GET /question/search` and `GET /question/getallquestion` are registered
   before the catch-all `GET /question/:id` and are therefore not shadowed.
