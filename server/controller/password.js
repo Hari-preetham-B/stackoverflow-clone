@@ -72,5 +72,13 @@ export const verifyPasswordResetOtp = async (req, res) => {
     if (latestReset) { latestReset.completedAt = new Date(); await latestReset.save(); }
     if (user.email) await sendNewPasswordEmail(user.email, newPassword);
     return res.json({ message: "OTP verified. A new temporary password has been sent to your email." });
-  } catch (error) { const status = /expired|Invalid OTP|Maximum OTP/i.test(error.message) ? 400 : 500; return res.status(status).json({ message: error.message || "Failed to verify OTP" }); }
+  } catch (error) {
+    // Every rejection `verifyStoredOtp` raises is a fixed message describing a
+    // bad request - an unknown, already-consumed, expired, over-attempted or
+    // wrong OTP. Only those map to 400; anything else stays a genuine 500. An
+    // unknown or re-used OTP used to fall through to 500 because "OTP not found"
+    // was not in the list, which reported a client error as a server fault.
+    const status = /OTP not found|OTP already used|expired|Invalid OTP|Maximum OTP/i.test(error.message || "") ? 400 : 500;
+    return res.status(status).json({ message: error.message || "Failed to verify OTP" });
+  }
 };
