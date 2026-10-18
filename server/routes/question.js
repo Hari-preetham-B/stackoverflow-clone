@@ -10,6 +10,8 @@ import {
   voteAnswer,
   bookmarkQuestion,
   flagQuestion,
+  listTags,
+  getQuestionsByTag,
 } from "../controller/question.js";
 
 const router = express.Router();
@@ -18,6 +20,9 @@ import optionalAuth from "../middleware/optionalAuth.js";
 router.post("/ask", auth, Askquestion);
 router.get("/getallquestion", getallquestion);
 router.get("/search", optionalAuth, searchQuestions);
+// Registered before the "/:id" catch-all below so they are not shadowed by it.
+router.get("/tags", listTags);
+router.get("/tag/:tag", getQuestionsByTag);
 router.delete("/delete/:id", auth, deletequestion);
 router.patch("/vote/:id", auth, votequestion);
 router.patch("/:id/answers/:answerId/accept", auth, acceptAnswer);

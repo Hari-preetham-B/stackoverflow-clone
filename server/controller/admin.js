@@ -75,7 +75,7 @@ export const moderateReport = async (req, res) => {
 
 export const getLoginActivityAdmin = async (_req, res) => res.json({ data: await LoginActivity.find().sort({ createdAt: -1 }).limit(200).populate("userId", "name email") });
 
-export const getUsersAdmin = async (_req, res) => res.json({ data: await User.find().select("name email role reputation subscriptionPlan subscriptionStatus createdAt") });
+export const getUsersAdmin = async (_req, res) => res.json({ data: await User.find().select("name email role reputation subscriptionPlan subscriptionStatus createdAt isSuspended suspendedUntil suspensionReason") });
 
 export const getContentReports = async (_req, res) => res.json({ data: await ContentReport.find({ status: "open" }).sort({ createdAt: -1 }).populate("reporterId", "name email").populate("questionId", "questiontitle") });
 

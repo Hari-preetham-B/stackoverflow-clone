@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import User from "../models/auth.js";
+import Session from "../models/session.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { createSession, isKnownDevice, createLoginActivity, updateTrustedDeviceUsage } from "../services/securityService.js";
@@ -110,5 +111,29 @@ export const updateprofile = async (req, res) => {
     if (!wasComplete && current.profileCompleted) await awardReputation({ userId: current._id, amount: 10, reason: "Profile completed", eventKey: `profile:${current._id}:completed`, relatedType: "user", relatedId: current._id });
     return res.json({ data: safeUser(current) });
   } catch (error) { console.error(error); return res.status(500).json({ message: "Something went wrong" }); }
+};
+
+/**
+ * Server-side logout.
+ *
+ * "Log out" previously only cleared localStorage on the client, which left the
+ * JWT and its backing Session active server-side. A token obtained through XSS, a
+ * shared machine or a copied browser profile therefore stayed usable until it
+ * expired on its own. Revoking the session here means the button actually ends
+ * server-side access. The filter is scoped to the caller, so a user can only ever
+ * revoke their own session.
+ */
+export const logout = async (req, res) => {
+  try {
+    await Session.updateOne(
+      { _id: req.sessionId, userId: req.userid },
+      { isActive: false, revokedAt: new Date() },
+    );
+    return res.json({ message: "Logged out" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    // Report the failure honestly rather than pretending the token is dead.
+    return res.status(500).json({ message: "Logout failed" });
+  }
 };
 

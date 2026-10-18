@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/auth.js";
 import Otp from "../models/otp.js";
 import PasswordReset from "../models/passwordReset.js";
+import Session from "../models/session.js";
 import { createOtp, verifyStoredOtp } from "../services/otpService.js";
 import { sendPasswordOtpEmail, sendNewPasswordEmail } from "../services/emailService.js";
 import { generateRandomPassword } from "../services/passwordService.js";
@@ -61,6 +62,12 @@ export const verifyPasswordResetOtp = async (req, res) => {
     const newPassword = generateRandomPassword(12);
     user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
+    // Changing the credential must invalidate every session issued against the
+    // old one. The auth middleware re-checks `Session.isActive` on every
+    // request, so revoking here is what actually ends an attacker's access.
+    // Without it, a stolen JWT stays usable until it naturally expires even
+    // after the owner resets their password.
+    await Session.updateMany({ userId: user._id, isActive: true }, { isActive: false, revokedAt: new Date() });
     const latestReset = await PasswordReset.findOne({ userId: user._id, completedAt: null }).sort({ requestedAt: -1 });
     if (latestReset) { latestReset.completedAt = new Date(); await latestReset.save(); }
     if (user.email) await sendNewPasswordEmail(user.email, newPassword);

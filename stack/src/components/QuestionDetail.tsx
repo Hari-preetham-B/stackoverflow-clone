@@ -10,6 +10,25 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "./ui/card";
+
+/**
+ * Renders an author name defensively.
+ *
+ * The embedded answer schema stores the author display name as a plain string
+ * (`useranswered`). Older seeded rows were written before the backend derived the
+ * name from the session, so the field can legitimately be missing. Reading
+ * `value[0]` blindly on such a row threw `Cannot read properties of undefined`
+ * and unmounted the whole page. This helper never throws and never hides a valid
+ * name; it only degrades to a placeholder when there is genuinely nothing to show.
+ */
+const authorName = (value: unknown, fallback = "User"): string => {
+  if (typeof value === "string" && value.trim()) return value;
+  if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim()) return value[0];
+  return fallback;
+};
+
+/** First character for an avatar fallback; "" is safer than throwing. */
+const authorInitial = (value: unknown): string => authorName(value, "").charAt(0).toUpperCase();
 import { Button } from "./ui/button";
 import Link from "next/link";
 import { Badge } from "./ui/badge";
@@ -259,6 +278,10 @@ const QuestionDetail = ({ questionId }: any) => {
   const [loading, setloading] = useState(true);
   const { user } = useAuth();
   useEffect(() => {
+    // The parent passes null until the router is ready. Never issue a request for
+    // an absent id: that produced a stray GET /question/undefined on every load.
+    if (!questionId) return;
+    setloading(true);
     const fetchuser = async () => {
       try {
         const res = await axiosInstance.get(`/question/${questionId}`);
@@ -440,6 +463,7 @@ const QuestionDetail = ({ questionId }: any) => {
                 variant="ghost"
                 size="sm"
                 className={`p-2 ${"text-gray-600 hover:text-orange-500"}`}
+                aria-label="Upvote question"
                 onClick={() => handleVote("upvote")}
               >
                 <ChevronUp className="w-6 h-6" />
@@ -449,6 +473,7 @@ const QuestionDetail = ({ questionId }: any) => {
                 variant="ghost"
                 size="sm"
                 className={`p-2 ${"text-gray-600 hover:text-orange-500"}`}
+                aria-label="Downvote question"
                 onClick={() => handleVote("downvote")}
               >
                 <ChevronDown className="w-6 h-6" />
@@ -462,6 +487,7 @@ const QuestionDetail = ({ questionId }: any) => {
                       ? "text-yellow-500"
                       : "text-gray-600 hover:text-yellow-500"
                   }`}
+                  aria-label="Bookmark this question"
                   onClick={handlebookmark}
                 >
                   <Bookmark
@@ -474,7 +500,7 @@ const QuestionDetail = ({ questionId }: any) => {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 p-4 sm:p-6">
+            <div className="flex-1 min-w-0 p-4 sm:p-6">
               <div className="prose max-w-none mb-6">
                 <div
                   className="text-gray-800 leading-relaxed"
@@ -526,12 +552,12 @@ const QuestionDetail = ({ questionId }: any) => {
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarFallback className="text-sm">
-                        {question.userposted[0]}
+                        {authorInitial(question.userposted)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="text-blue-600 hover:text-blue-800 font-medium">
-                        {question.userposted}
+                        {authorName(question.userposted)}
                       </div>
                     </div>
                   </Link>
@@ -553,12 +579,12 @@ const QuestionDetail = ({ questionId }: any) => {
                 <div className="flex flex-col sm:flex-row">
                   {/* Answer Content */}
                   <div className="flex sm:flex-col items-center p-4 sm:p-6 border-b sm:border-b-0 sm:border-r border-gray-200 gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleAnswerVote(ans._id, "upvote")}><ChevronUp /></Button>
+                    <Button variant="ghost" size="sm" aria-label="Upvote answer" onClick={() => handleAnswerVote(ans._id, "upvote")}><ChevronUp /></Button>
                     <span>{(ans.upvote?.length || 0) - (ans.downvote?.length || 0)}</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleAnswerVote(ans._id, "downvote")}><ChevronDown /></Button>
+                    <Button variant="ghost" size="sm" aria-label="Downvote answer" onClick={() => handleAnswerVote(ans._id, "downvote")}><ChevronDown /></Button>
                     {ans.accepted && <span className="text-green-600 text-xs font-semibold">Accepted</span>}
                   </div>
-                  <div className="flex-1 p-4 sm:p-6">
+                  <div className="flex-1 min-w-0 p-4 sm:p-6">
                     <div className="prose max-w-none mb-6">
                       <div
                         className="text-gray-800 leading-relaxed"
@@ -570,7 +596,7 @@ const QuestionDetail = ({ questionId }: any) => {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div className="flex gap-2">
                         {question.userid === user?._id && !ans.accepted && (
-                          <Button variant="ghost" size="sm" onClick={() => handleAcceptAnswer(ans._id)} className="text-green-600">
+                          <Button variant="ghost" size="sm" aria-label="Accept this answer" onClick={() => handleAcceptAnswer(ans._id)} className="text-green-600">
                             Accept
                           </Button>
                         )}
@@ -597,12 +623,12 @@ const QuestionDetail = ({ questionId }: any) => {
                         >
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="text-sm">
-                              {ans.useranswered[0]}
+                              {authorInitial(ans.useranswered)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="text-blue-600 hover:text-blue-800 font-medium">
-                              {ans.useranswered}
+                              {authorName(ans.useranswered)}
                             </div>
                           </div>
                         </Link>

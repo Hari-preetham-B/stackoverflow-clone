@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import axiosInstance from "./axiosinstance";
 import { toast } from "react-toastify";
 
@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
  * @property {() => void} CancelLoginVerification
  * @property {any} loginVerification
  * @property {boolean} loading
+ * @property {boolean} hydrated True once the browser-only auth state has been read after mount
  * @property {any} error
  */
 
@@ -31,10 +32,23 @@ const readVerification = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(readUser);
+  // Browser-only state must NOT be read during render. `useState(readUser)` ran
+  // `localStorage` on the client but returned null on the server, so the server
+  // emitted the logged-out navbar and the client immediately re-rendered the
+  // logged-in one. React reported hydration error #418 and threw the server HTML
+  // away on every authenticated page. Starting from a deterministic value and
+  // hydrating in an effect makes the first client render identical to SSR.
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [loginVerification, setLoginVerification] = useState(readVerification);
+  const [loginVerification, setLoginVerification] = useState(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setUser(readUser());
+    setLoginVerification(readVerification());
+    setHydrated(true);
+  }, []);
 
   const persistUser = (data, token) => {
     const value = { ...data, token };
@@ -93,8 +107,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const CancelLoginVerification = () => { sessionStorage.removeItem("loginVerification"); setLoginVerification(null); setError(null); };
-  const Logout = () => { localStorage.removeItem("user"); setUser(null); CancelLoginVerification(); toast.info("Logged out"); };
+  const Logout = async () => {
+    // Revoke server-side first so the token genuinely stops working. Clearing
+    // localStorage alone left the session active until it expired on its own.
+    // The local state is cleared either way so the UI never gets stuck.
+    try { await axiosInstance.post("/user/logout"); }
+    catch { /* offline or already-expired token: the local sign-out still stands */ }
+    localStorage.removeItem("user");
+    setUser(null);
+    CancelLoginVerification();
+    toast.info("Logged out");
+  };
 
-  return <AuthContext.Provider value={{ user, Signup, Login, Logout, VerifyNewDevice, CancelLoginVerification, loginVerification, loading, error }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, Signup, Login, Logout, VerifyNewDevice, CancelLoginVerification, loginVerification, loading, error, hydrated }}>{children}</AuthContext.Provider>;
 };
 export const useAuth = () => useContext(AuthContext);

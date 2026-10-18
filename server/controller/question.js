@@ -17,7 +17,7 @@ export const Askquestion = async (req, res) => {
     const start = new Date(); start.setHours(0, 0, 0, 0);
     const count = await question.countDocuments({ userid: req.userid, askedon: { $gte: start } });
     if (plan.dailyQuestions !== null && count >= plan.dailyQuestions) return res.status(429).json({ message: `Daily question limit reached for ${plan.name} plan`, limit: plan.dailyQuestions });
-    const postques = await question.create({ questiontitle, questionbody, questiontags: Array.isArray(questiontags) ? questiontags.slice(0, 5) : [], userposted: currentUser.name || userposted, userid: req.userid });
+    const postques = await question.create({ questiontitle, questionbody, questiontags: Array.isArray(questiontags) ? questiontags.slice(0, 5) : [], userposted: currentUser?.name || "User", userid: req.userid });
     await awardReputation({ userId: req.userid, amount: 2, reason: "Question posted" , eventKey: `question:${postques._id}:post`, relatedType: "question", relatedId: postques._id });
     return res.status(201).json({ data: postques });
   } catch (error) { console.error(error); return res.status(500).json({ message: "Failed to post question" }); }
@@ -49,13 +49,63 @@ export const getquestion = async (req, res) => {
   try {
     const doc = await question.findById(id);
     if (!doc) return res.status(404).json({ message: "question unavailable" });
-    const all = doc.answer || [];
+    // Soft-deleted answers are still stored on the document, so they are filtered
+    // out here. Returning them exposed removed content to every reader and made
+    // `noofanswer` disagree with the answers actually returned.
+    const all = visibleAnswers(doc.answer);
     return res.json({
-      data: { ...doc.toObject(), answer: all.slice(0, MAX_ANSWERS_PER_REQUEST) },
+      data: { ...doc.toObject(), answer: all.slice(0, MAX_ANSWERS_PER_REQUEST), noofanswer: all.length },
       answersTotal: all.length,
       answersTruncated: all.length > MAX_ANSWERS_PER_REQUEST,
     });
   } catch (error) { return res.status(500).json({ message: "Failed to load question" }); }
+};
+
+/**
+ * Soft-deleted answers stay on the document for moderation history, so the read
+ * path must filter them. Pure so the rule is unit-testable without a database.
+ */
+export const visibleAnswers = (answers) => (answers || []).filter((a) => a && typeof a === "object" && !a.deleted);
+
+/** Case-insensitive exact match on a single tag inside the `questiontags` array. */
+export const tagFilter = (raw) => {
+  const cleaned = String(raw || "").trim().replace(/^#/, "").slice(0, 50);
+  // Escape every regex metacharacter so a user-supplied tag can never act as a
+  // pattern and widen the result set.
+  const safe = cleaned.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${safe}$`, "i");
+};
+
+/** Tag list with question counts, used by GET /tags. */
+export const listTags = async (req, res) => {
+  try {
+    const rows = await question.aggregate([
+      { $unwind: "$questiontags" },
+      { $group: { _id: "$questiontags", count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+    ]);
+    const tags = rows.map((row) => ({ name: row._id, count: row.count }));
+    return res.status(200).json({ data: tags, total: tags.length });
+  } catch (error) { return res.status(500).json({ message: "Failed to load tags" }); }
+};
+
+/** Paginated questions carrying a tag, used by GET /question/tag/:tag. */
+export const getQuestionsByTag = async (req, res) => {
+  const cleaned = String(req.params.tag || "").trim().replace(/^#/, "");
+  if (!cleaned) return res.status(400).json({ message: "Tag is required" });
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const filter = { questiontags: tagFilter(cleaned) };
+    const total = await question.countDocuments(filter);
+    const data = await question
+      .find(filter)
+      .sort({ askedon: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select("-answer");
+    return res.status(200).json({ data, tag: cleaned.toLowerCase(), pagination: { page, limit, total, hasMore: page * limit < total } });
+  } catch (error) { return res.status(500).json({ message: "Failed to load questions for tag" }); }
 };
 
 export const searchQuestions = async (req, res) => {

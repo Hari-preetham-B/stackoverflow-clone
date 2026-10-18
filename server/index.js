@@ -47,14 +47,21 @@ app.use(
   }),
 );
 
-// Baseline security headers, applied without pulling in a dependency. A full
-// Content-Security-Policy is deliberately not set here because it has to be
-// tuned together with the Next.js and Razorpay checkout scripts.
+// Baseline security headers, applied without pulling in a dependency. This is the
+// JSON API, not the frontend document, so a Content-Security-Policy can be set
+// safely here; the Next.js and Razorpay checkout scripts are served by `stack`
+// and are unaffected. The generated invoice sets its own stricter policy.
 app.disable("x-powered-by");
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Browsers ignore HSTS on a plain-HTTP response, so setting it unconditionally
+  // is safe in local development and takes effect once the API is served over TLS.
+  res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   next();
 });
 app.get("/", (req, res) => {

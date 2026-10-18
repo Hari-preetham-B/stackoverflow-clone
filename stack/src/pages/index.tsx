@@ -179,14 +179,14 @@ export default function Home() {
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                       <div className="flex flex-wrap gap-1">
                         {question.questiontags.map((tag: any) => (
-                          <div key={tag}>
+                          <Link key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
                             <Badge
                               variant="secondary"
                               className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer"
                             >
                               {tag}
                             </Badge>
-                          </div>
+                          </Link>
                         ))}
                       </div>
 

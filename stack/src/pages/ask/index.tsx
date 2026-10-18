@@ -148,6 +148,7 @@ const index = () => {
                     className="w-full"
                   />
                   <Button
+                    aria-label="Add tag"
                     onClick={handleAddTag}
                     variant="outline"
                     size="sm"
@@ -168,8 +169,10 @@ const index = () => {
                       >
                         {tag}
                         <button
+                          type="button"
                           onClick={() => handleRemoveTag(tag)}
                           className="ml-1 hover:text-red-600"
+                          aria-label={`Remove tag ${tag}`}
                         >
                           <X className="w-3 h-3" />
                         </button>

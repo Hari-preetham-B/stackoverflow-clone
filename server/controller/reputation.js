@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import User from "../models/auth.js";
 import ReputationLog from "../models/reputationLog.js";
-import { awardReputation, getPrivileges, getReputationHistory } from "../services/reputationService.js";
+import { awardReputation, debitReputation, refundReputation, getPrivileges, getReputationHistory } from "../services/reputationService.js";
 
 export const getMyReputation = async (req, res) => {
   const user = await User.findById(req.userid).select("name reputation");
@@ -32,7 +32,18 @@ export const transferReputation = async (req, res) => {
   const sentToday = await ReputationLog.aggregate([{ $match: { actorId: sender._id, reason: "Reputation transfer", amount: { $lt: 0 }, createdAt: { $gte: since } } }, { $group: { _id: null, total: { $sum: { $abs: "$amount" } } } }]);
   const totalToday = sentToday[0]?.total || 0;
   if (totalToday + amount > 100) return res.status(400).json({ message: "Daily transfer limit is 100 reputation" });
-  await awardReputation({ userId: sender._id, actorId: sender._id, amount: -amount, reason: "Reputation transfer", relatedType: "transfer", relatedId: receiver._id, metadata: { receiverId, reason } });
-  await awardReputation({ userId: receiver._id, actorId: sender._id, amount, reason: "Reputation transfer received", metadata: { senderId: sender._id, reason } });
+  // The debit is a single guarded document update rather than a read-then-write,
+  // so two concurrent transfers cannot both pass the balance check and push the
+  // sender negative. It must be applied before the audit rows are written, and
+  // refunded if the credit leg fails, otherwise reputation could be destroyed.
+  const debited = await debitReputation({ userId: sender._id, amount });
+  if (!debited) return res.status(400).json({ message: "Insufficient reputation" });
+  try {
+    await awardReputation({ userId: sender._id, actorId: sender._id, amount: -amount, reason: "Reputation transfer", relatedType: "transfer", relatedId: receiver._id, metadata: { receiverId, reason }, skipBalance: true });
+    await awardReputation({ userId: receiver._id, actorId: sender._id, amount, reason: "Reputation transfer received", metadata: { senderId: sender._id, reason } });
+  } catch (error) {
+    await refundReputation({ userId: sender._id, amount });
+    return res.status(500).json({ message: "Transfer failed and was rolled back" });
+  }
   return res.json({ message: "Reputation transferred successfully" });
 };

@@ -19,7 +19,7 @@ const Sidebar = ({ isopen }: any) => {
     ["/security", t("security"), Shield],
     ["/settings/language", t("language"), Globe2],
   ];
-  if (user?.role === "admin") links.push(["/admin", "Admin", Shield]);
+  if (user?.role === "admin") links.push(["/admin", t("admin"), Shield]);
   // On small screens the sidebar is an off-canvas drawer, so it must be taken
   // out of the flex flow with `fixed`. Previously it stayed in flow and was
   // only translated off-screen, which still reserved its 192px width and
