@@ -1,14 +1,22 @@
 import crypto from "crypto";
-import useragent from "useragent";
+import { UAParser } from "ua-parser-js";
 
 export const getDeviceInfo = (req) => {
   const userAgentString = req.headers["user-agent"] || "";
 
-  const agent = useragent.parse(userAgentString);
+  const parser = new UAParser();
+  parser.setUA(userAgentString);
+  const result = parser.getResult();
 
-  const device = agent.device.toString() || "Unknown";
-  const browser = agent.toAgent() || "Unknown";
-  const os = agent.os.toString() || "Unknown";
+  const device = result.device.type
+    ? `${result.device.vendor || ""} ${result.device.model || ""} ${result.device.type}`.trim() || "Unknown"
+    : "Unknown";
+  const browser = result.browser.name
+    ? `${result.browser.name} ${result.browser.version || ""}`.trim()
+    : "Unknown";
+  const os = result.os.name
+    ? `${result.os.name} ${result.os.version || ""}`.trim()
+    : "Unknown";
 
   const ipAddress =
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||

@@ -5,7 +5,7 @@ This document describes **what is currently implemented**. Verification results 
 [RUN_AND_TEST.md](RUN_AND_TEST.md).
 
 Project scale: **63 registered API routes - 18 Mongoose models - 11 controllers - 12 services -
-4 middleware modules - 23 frontend pages - 172 automated tests.**
+4 middleware modules - 23 frontend pages - 277 automated tests.**
 
 ## Feature groups
 

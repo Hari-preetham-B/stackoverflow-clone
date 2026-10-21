@@ -15,11 +15,11 @@
 ## Automated tests
 
 ```powershell
-cd server; npm test     # 138 tests
+cd server; npm test     # 243 tests
 cd stack;  npm test     # 34 tests
 
 # from the project root, runs both suites
-node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 172 tests
+node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 277 tests
 
 # type check
 node stack/node_modules/typescript/bin/tsc --noEmit --incremental false -p stack/tsconfig.json

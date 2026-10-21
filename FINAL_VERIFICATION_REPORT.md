@@ -8,9 +8,9 @@ is in [RUN_AND_TEST.md](RUN_AND_TEST.md).
 
 | Check | Command | Result |
 |---|---|---|
-| Backend tests | `cd server && npm test` | **138 / 138 passed**, 0 failed |
+| Backend tests | `cd server && npm test` | **243 / 243 passed**, 0 failed |
 | Frontend tests | `cd stack && npm test` | **34 / 34 passed**, 0 failed |
-| Combined tests | `node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts` | **172 / 172 passed**, 0 failed |
+| Combined tests | `node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts` | **277 / 277 passed**, 0 failed |
 | TypeScript | `tsc --noEmit --incremental false` | **0 diagnostics** |
 | Backend syntax | `node --check` on all backend `.js` | **63 / 63 passed**, 0 failures |
 | Production build | `cd stack && npm run build` | **Succeeded**; all pages generated |

@@ -24,7 +24,7 @@ five internship-specific feature modules.
 | **Device intelligence** | User-agent parsing for browser / OS / device detection |
 | **Testing** | Node's built-in test runner (`node:test`) + `node:assert/strict` — no external test framework |
 
-**Codebase scale:** 63 registered API routes - 18 Mongoose models - 11 controllers - 12 services - 4 middleware modules - 23 frontend pages - 172 automated tests.
+**Codebase scale:** 63 registered API routes - 18 Mongoose models - 11 controllers - 12 services - 4 middleware modules - 23 frontend pages - 277 automated tests.
 
 ---
 
@@ -367,11 +367,11 @@ Open <http://localhost:3000>. Verify the API with `GET http://localhost:5000/hea
 ## 16. Testing
 
 ```powershell
-cd server; npm test    # 138 tests
+cd server; npm test    # 243 tests
 cd stack;  npm test    # 34 tests
 
 # from the project root — runs both suites
-node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 172 tests
+node --test server/tests/*.test.js stack/src/lib/__tests__/*.test.ts   # 277 tests
 
 # type check
 node stack/node_modules/typescript/bin/tsc --noEmit --incremental false -p stack/tsconfig.json
@@ -478,7 +478,7 @@ These are **verification and deployment limitations**, not implementation failur
   profiles, MongoDB and JWT layers were kept intact; the internship modules are additive.
 - **Every server-authoritative rule** (plan quotas, entitlements, moderation penalties, role
   checks, rate limits) is enforced in the backend, never trusted from the client.
-- **Test coverage:** 172 automated tests across both packages, including the two highest-risk
+- **Test coverage:** 277 automated tests across both packages, including the two highest-risk
   security paths.
 - **Build status:** TypeScript reports 0 diagnostics; the production Next.js build succeeds and
   generates all pages.
