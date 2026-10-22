@@ -68,6 +68,36 @@ app.get("/", (req, res) => {
   res.send("Stackoverflow clone is running perfect");
 });
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "stackoverflow-clone-api" }));
+
+// Temporary diagnostic: test TCP connectivity to SMTP host (no email sent, no secrets exposed)
+app.get("/health/smtp-connectivity", async (_req, res) => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT);
+  const start = Date.now();
+  if (!host || !port) {
+    return res.json({ host: host || "unset", port: port || "unset", connected: false, errorCode: "MISSING_CONFIG", errorMessage: "SMTP_HOST or SMTP_PORT not configured", elapsedMs: Date.now() - start });
+  }
+  const net = await import("node:net");
+  try {
+    await new Promise((resolve, reject) => {
+      const socket = net.createConnection({ host, port, timeout: 10000 }, () => {
+        socket.destroy();
+        resolve();
+      });
+      socket.on("error", (err) => {
+        reject(err);
+      });
+      socket.on("timeout", () => {
+        socket.destroy();
+        reject(new Error("CONNECT_TIMEOUT"));
+      });
+    });
+    return res.json({ host, port, connected: true, elapsedMs: Date.now() - start });
+  } catch (err) {
+    return res.json({ host, port, connected: false, errorCode: err.code || "CONNECT_ERROR", errorMessage: err.message, elapsedMs: Date.now() - start });
+  }
+});
+
 app.use("/user", userroutes);
 app.use("/question", questionroute);
 app.use("/answer", answerroutes);
