@@ -656,7 +656,6 @@ const QuestionDetail = ({ questionId }: any) => {
             <Button
               onClick={handleSubmitanswer}
               disabled={!newanswer.trim() || isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSubmitting ? "Posting..." : "Post Your Answer"}
             </Button>

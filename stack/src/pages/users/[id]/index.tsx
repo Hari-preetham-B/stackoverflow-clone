@@ -264,12 +264,7 @@ const index = () => {
                         >
                           Cancel
                         </Button>
-                        <Button
-                          onClick={handleSaveProfile}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          Save Changes
-                        </Button>
+                        <Button onClick={handleSaveProfile}>Save Changes</Button>
                       </div>
                     </div>
                   </DialogContent>

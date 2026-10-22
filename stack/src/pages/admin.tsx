@@ -177,7 +177,7 @@ export default function AdminPage() {
                         value={form.days}
                         onChange={(e) => setSuspendForm({ ...form, days: e.target.value })}
                       />
-                      <Button size="sm" className="bg-blue-600" disabled={busyId === user._id} onClick={() => suspend(user)}>
+                      <Button size="sm" variant="destructive" disabled={busyId === user._id} onClick={() => suspend(user)}>
                         {busyId === user._id ? "Working…" : "Confirm suspension"}
                       </Button>
                     </div>

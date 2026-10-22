@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Mainlayout from "@/layout/Mainlayout";
 import axiosInstance from "@/lib/axiosinstance";
 import Link from "next/link";
@@ -113,12 +114,7 @@ export default function Home() {
       <main className="min-w-0 p-4 lg:p-6 ">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h1 className="text-xl lg:text-2xl font-semibold">Top Questions</h1>
-          <button
-            onClick={() => router.push("/ask")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium whitespace-nowrap"
-          >
-            Ask Question
-          </button>
+          <Button onClick={() => router.push("/ask")}>Ask Question</Button>
         </div>
         <div className="w-full">
           <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 text-sm gap-2 sm:gap-4">

@@ -179,7 +179,7 @@ export default function SignUpPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-sm"
+                className="w-full text-sm"
               >
                 {loading ? "Signing up.." : "Sign up"}
               </Button>

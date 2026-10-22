@@ -183,9 +183,7 @@ const index = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                <Button type="submit" className="bg-blue-600 text-white">
-                  Review your question
-                </Button>
+                <Button type="submit">Review your question</Button>
               </div>
             </CardContent>
           </Card>

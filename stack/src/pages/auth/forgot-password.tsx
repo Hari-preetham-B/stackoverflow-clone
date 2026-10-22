@@ -129,7 +129,7 @@ const ForgotPassword = () => {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full"
                 >
                   {loading ? "Sending..." : "Send OTP"}
                 </Button>
@@ -160,7 +160,7 @@ const ForgotPassword = () => {
                 <Button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full"
                 >
                   {loading ? "Verifying..." : "Verify OTP"}
                 </Button>
