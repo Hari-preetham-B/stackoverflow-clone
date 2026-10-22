@@ -1,26 +1,48 @@
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import { Resend } from "resend";
 
-dotenv.config();
+let resend = null;
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
+function getResend() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      const err = new Error("RESEND_API_KEY not configured");
+      err.code = "MISSING_API_KEY";
+      throw err;
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
+
+function getFromEmail() {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) {
+    const err = new Error("RESEND_FROM_EMAIL not configured");
+    err.code = "MISSING_FROM_EMAIL";
+    throw err;
+  }
+  return from;
+}
+
+// Internal function for testing - allows injecting a mock Resend instance
+export const __setResendForTesting = (mockResend) => {
+  resend = mockResend;
+};
 
 export const sendEmail = async ({ to, subject, text, html }) => {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  const from = getFromEmail();
+  const { error } = await getResend().emails.send({
+    from,
     to,
     subject,
     text,
     html,
   });
+  if (error) {
+    const err = new Error("Resend send failed: " + error.message);
+    err.code = error.code || "RESEND_ERROR";
+    throw err;
+  }
 };
 
 export const sendPasswordOtpEmail = async (email, otp) => {
